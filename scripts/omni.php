@@ -9,6 +9,11 @@ require_once dirname(__FILE__).'/__init_script__.php';
 
 ini_set('memory_limit', -1);
 
+$shell = new Shell();
+$shell->run();
+
+/*
+
 $args = new PhutilArgumentParser($argv);
 $args->parseStandardArguments();
 $args->parsePartial(
@@ -74,3 +79,5 @@ if ($interactive) {
     // replaces the current process.
   }
 } 
+
+*/
