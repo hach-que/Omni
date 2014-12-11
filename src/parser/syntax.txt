@@ -1,0 +1,8 @@
+script -> statement+
+
+statement ->
+  job
+
+job ->
+  command
+  command

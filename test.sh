@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/home/james/Projects/Omni/omni/bin/omni
 
-for i in $(seq 1 10); do echo $i; sleep 1; done
+$var = hello
+echo $var
 

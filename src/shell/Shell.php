@@ -11,6 +11,7 @@ final class Shell extends Phobject {
   private $terminal;
   private $isInteractive;
   private $jobs = array();
+  private $variables = array();
   
   public function findJob($pgid) {
     return idx($this->jobs, $pgid, null);
@@ -46,26 +47,6 @@ final class Shell extends Phobject {
       
       $this->tmodes = omni_tcgetattr($this->terminal);
     }
-    
-    $process_a = new Process();
-    $process_a->argv = array(
-      "/home/james/Projects/Omni/omni/test.sh");
-    
-    $process_b = new Process();
-    $process_b->argv = array(
-      "/usr/bin/grep",
-      "5");
-      
-    $job = new Job();
-    $job->processes = array(
-      $process_a,
-      $process_b,
-    );
-    $job->stdin = self::STDIN_FILENO;
-    $job->stdout = self::STDOUT_FILENO;
-    $job->stderr = self::STDERR_FILENO;
-    
-    $this->launchJob($job);
   }
   
   public function launchProcess(
@@ -189,7 +170,7 @@ final class Shell extends Phobject {
       }
     }
 
-    $this->formatJobInfo($job, "launched");
+    //$this->formatJobInfo($job, "launched");
     
     if (!$this->isInteractive) {
       $this->waitForJob($job);
@@ -255,7 +236,7 @@ final class Shell extends Phobject {
       }
       
       // TODO stderr
-      self::writeToStderr("No child process ".$pid.".\n");
+      //self::writeToStderr("No child process ".$pid.".\n");
       return -1;
     } else if ($pid === 0 || pcntl_get_last_error() == 10 /* ECHILD */) {
       // No processes ready to report.
@@ -333,5 +314,22 @@ final class Shell extends Phobject {
     } else {
       $this->putJobInBackground($job, true);
     }
+  }
+  
+  public function execute($input) {
+    $results = omnilang_parse($input);
+    id(new RootVisitor())->visit($this, $results);
+  }
+  
+  public function executeFromArray($argv) {
+    // TODO
+  }
+  
+  public function setVariable($key, $value) {
+    $this->variables[$key] = $value;
+  }
+  
+  public function getVariable($key) {
+    return idx($this->variables, $key, null);
   }
 }
