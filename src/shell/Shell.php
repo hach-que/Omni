@@ -12,6 +12,22 @@ final class Shell extends Phobject {
   private $isInteractive;
   private $jobs = array();
   private $variables = array();
+  private $builtins;
+  
+  public function __construct() {
+    $this->builtins = id(new PhutilSymbolLoader())
+      ->withAncestorClass('Builtin')
+      ->loadObjects();
+    $this->builtins = mpull($this->builtins, null, 'getName');
+  }
+  
+  public function isKnownBuiltin($name) {
+    return idx($this->builtins, $name, null) !== null;
+  }
+  
+  public function lookupBuiltin($name) {
+    return idx($this->builtins, $name, null);
+  }
   
   public function findJob($pgid) {
     return idx($this->jobs, $pgid, null);
@@ -50,7 +66,7 @@ final class Shell extends Phobject {
   }
   
   public function launchProcess(
-    Process $process, 
+    array $argv, 
     $inFD = self::STDIN_FILENO,
     $outFD = self::STDOUT_FILENO,
     $errFD = self::STDERR_FILENO,
@@ -93,11 +109,10 @@ final class Shell extends Phobject {
       omni_close($errFD);
     }
     
-    $argv = $process->argv;
     $path = array_shift($argv);
     
-    if (pcntl_exec($path, $argv) === false) {
-      self::writeToStderr("error: exec: ".pcntl_strerror()."\n");
+    if (@pcntl_exec($path, $argv) === false) {
+      self::writeToStderr("error: $path: ".pcntl_strerror(pcntl_get_last_error())."\n");
       exit(1);
     }
   }
@@ -322,7 +337,7 @@ final class Shell extends Phobject {
   }
   
   public function executeFromArray($argv) {
-    // TODO
+    $this->execute(implode(' ', $argv));
   }
   
   public function setVariable($key, $value) {
