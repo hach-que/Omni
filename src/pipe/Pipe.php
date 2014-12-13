@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * An abstraction on top of the native system pipes, which allows multiple inputs
+ * and outputs, and permits complex objects to be transmitted over the stream
+ * (via serialization).
+ */
 final class Pipe extends Phobject {
 
   const DIST_METHOD_SPLIT = 'split';

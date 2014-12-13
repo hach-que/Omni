@@ -21,10 +21,6 @@ $result = $args->parsePartial(
                     'interactive shell.',
     ),
     array(
-      'name'     => 'self-test',
-      'help'     => 'Run Omni\'s self testing suite.'
-    ),
-    array(
       'name'     => 'ast-command',
       'param'    => 'ast',
       'help'     => 'Print the AST for the specified command.',
@@ -32,13 +28,6 @@ $result = $args->parsePartial(
 ));
 
 $command = $args->getArg('command');
-$self_test = $args->getArg('self-test');
-
-if ($self_test) {
-  $runner = new SelfTestRunner();
-  $runner->run();
-  exit(0); // Tests will run exit(1) if they fail, so if we get to here we've passed.
-}
 
 if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));

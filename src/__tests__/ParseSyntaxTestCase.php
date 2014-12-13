@@ -1,8 +1,8 @@
 <?php
 
-final class ParseSyntaxTests extends Tests {
+final class ParseSyntaxTestCase extends PhutilTestCase {
   
-  public function runTests() {
+  public function testBasicSyntax() {
     $strings = array(
       "echo 'test'",
       "echo 'test'\n",
@@ -25,16 +25,9 @@ final class ParseSyntaxTests extends Tests {
       "\$var = 'hello' \n echo \$var;",
     );
     
-    echo "Parse syntax tests:\n";
-    echo "=========================\n";
-    
     foreach ($strings as $str) {
       $result = omnilang_parse($str);
-      if (is_array($result)) {
-        $this->createPass($str);
-      } else {
-        $this->createFail($str);
-      }
+      $this->assertTrue(is_array($result));
     }
   }
   

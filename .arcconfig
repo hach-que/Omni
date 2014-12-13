@@ -1,0 +1,8 @@
+{
+  "project.name" : "omni",
+  "phabricator.uri" : "https://code.redpointsoftware.com.au/",
+  "unit.engine" : "PhutilUnitTestEngine",
+  "load" : [
+    "src/"
+  ]
+}
