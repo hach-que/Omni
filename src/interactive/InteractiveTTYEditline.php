@@ -5,6 +5,19 @@ final class InteractiveTTYEditline extends Phobject {
   private $shell;
   private $parser;
   private $maxSuggestions = 0;
+  private $simulate;
+  
+  public function simulate() {
+    $this->shell = new Shell();
+    $this->shell->initialize();
+    
+    $this->simulate = true;
+    
+    $this->handleCommand('echo "test" | grep "t"');
+    $this->handleCommand('echo "test" | grep "ll"');
+    $this->handleCommand('echo "hello" | grep "t"');
+    $this->handleCommand('echo "hello" | grep "ll"');
+  }
 
   public function run() {
     $this->shell = new Shell();
@@ -71,7 +84,9 @@ final class InteractiveTTYEditline extends Phobject {
   public function handleCommand($input) {
     omni_trace("clear suggestions");
     
-    $this->clearSuggestions();
+    if (!$this->simulate) {
+      $this->clearSuggestions();
+    }
     
     omni_trace("execute input");
     
@@ -79,7 +94,9 @@ final class InteractiveTTYEditline extends Phobject {
     
     omni_trace("begin editline again");
     
-    editline_begin();
+    if (!$this->simulate) {
+      editline_begin();
+    }
     
     omni_trace("ready for editline input");
   }

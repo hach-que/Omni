@@ -56,7 +56,7 @@ final class Process
     return $this->completed = $completed;
   }
   
-  public function launch(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
     $executable = array_shift($this->arguments);
     $resolved_executable = Filesystem::resolveBinary($executable);
     $is_native = false;
@@ -77,7 +77,19 @@ final class Process
       $this->type = 'native';
     }
     
-    $this->pid = $target->launch($shell, $job, $stdin, $stdout, $stderr);
+    $data = $target->prepare($shell, $job, $stdin, $stdout, $stderr);
+    
+    return array(
+      'target' => $target,
+      'data' => $data,
+    );
+  }
+  
+  public function launch(Shell $shell, Job $job, array $prepare_data) {
+    $target = idx($prepare_data, 'target');
+    $data = idx($prepare_data, 'data');
+    
+    $this->pid = $target->launch($shell, $job, $data);
     
     return $this;
   }

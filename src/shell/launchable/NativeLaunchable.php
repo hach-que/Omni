@@ -12,7 +12,9 @@ final class NativeLaunchable
     $this->argv = $argv;
   }
   
-  public function launch(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+    // Set up all of the endpoints for our launch later on.
+    
     $stdin_endpoint = $stdin->createOutboundEndpoint(
       Endpoint::FORMAT_BYTE_STREAM,
       $this->executable." stdin");
@@ -22,11 +24,36 @@ final class NativeLaunchable
     $stderr_endpoint = $stderr->createInboundEndpoint(
       Endpoint::FORMAT_BYTE_STREAM,
       $this->executable." stderr");
+      
+    return array(
+      'stdin' => $stdin_endpoint,
+      'stdout' => $stdout_endpoint,
+      'stderr' => $stderr_endpoint,
+      'stdin_pipe' => $stdin,
+      'stdout_pipe' => $stdout,
+      'stderr_pipe' => $stderr,
+    );
+  }
+  
+  public function launch(Shell $shell, Job $job, array $prepare_data) {
+    // Once the native executables start to launch, you can't modify the pipeline (e.g.
+    // adding endpoints) because all of the pipe controllers have already started.
+    
+    $stdin = idx($prepare_data, 'stdin_pipe');
+    $stdout = idx($prepare_data, 'stdout_pipe');
+    $stderr = idx($prepare_data, 'stderr_pipe');
+    $stdin_endpoint = idx($prepare_data, 'stdin');
+    $stdout_endpoint = idx($prepare_data, 'stdout');
+    $stderr_endpoint = idx($prepare_data, 'stderr');
     
     omni_trace("Launching ".$this->executable.
       " with stdin pipe ".$stdin->getName().
       " with stdout pipe ".$stdout->getName().
       " with stderr pipe ".$stderr->getName());
+    omni_trace("The FDs for ".$this->executable.
+      " are stdin: ".$stdin->getName().
+      " , stdout: ".$stdout->getName().
+      " , stderr: ".$stderr->getName());
     
     $pid = pcntl_fork();
     if ($pid === 0) {

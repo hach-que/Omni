@@ -25,6 +25,10 @@ $result = $args->parsePartial(
       'param'    => 'ast',
       'help'     => 'Print the AST for the specified command.',
     ),
+    array(
+      'name'     => 'simulate-interactive',
+      'help'     => 'Simulate commands being typed at the interactive prompt.',
+    ),
 ));
 
 if ($args->getArg('trace')) {
@@ -53,7 +57,11 @@ if (posix_isatty(Shell::STDIN_FILENO) && count($command) === 0) {
 
   // Run as an interactive shell.
   $tty = new InteractiveTTYEditline();
-  $tty->run();
+  if ($args->getArg('simulate-interactive')) {
+    $tty->simulate();
+  } else {
+    $tty->run();
+  }
 } else {
   omni_trace("executing command");
 

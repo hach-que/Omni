@@ -122,6 +122,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("start launching stages");
   
+    $stage_data = array();
     $stage_count = count($this->stages);
     for ($i = 0; $i < $stage_count; $i++) {
       $stage = $this->stages[$i];
@@ -143,9 +144,38 @@ final class Job extends Phobject implements HasTerminalModesInterface {
         $pipe_next = $stdout;
       }
       
+      omni_trace("calling prepare() on ".get_class($stage));
+        
+      $stage_data[$i] = $stage->prepare($shell, $this, $pipe_prev, $pipe_next, $stderr);
+      
+      omni_trace("setting up for next stage in job");
+      
+      $pipe_prev = $pipe_next;
+    }
+    
+    omni_trace("getting ready to launch pipes");
+    
+    omni_trace("i am PID ".posix_getpid());
+    
+    omni_trace("starting pipe ".$stdin->getName());
+    $stdin->startController($shell, $this);
+    
+    foreach ($pipes as $pipe) {
+      omni_trace("starting pipe ".$pipe->getName());
+    
+      $this->processes[] = $pipe->startController($shell, $this);
+    }
+    
+    omni_trace("getting ready to launch executables");
+    
+    $stage_count = count($this->stages);
+    for ($i = 0; $i < $stage_count; $i++) {
+      $stage = $this->stages[$i];
+      $prepare_data = $stage_data[$i];
+      
       omni_trace("calling launch() on ".get_class($stage));
         
-      $result = $stage->launch($shell, $this, $pipe_prev, $pipe_next, $stderr);
+      $result = $stage->launch($shell, $this, $prepare_data);
       
       omni_trace("adding result processes");
       
@@ -158,23 +188,6 @@ final class Job extends Phobject implements HasTerminalModesInterface {
           }
         }
       }
-      
-      omni_trace("setting up for next stage in job");
-      
-      $pipe_prev = $pipe_next;
-    }
-    
-    omni_trace("job execution started, getting ready to launch pipes");
-    
-    omni_trace("i am PID ".posix_getpid());
-    
-    omni_trace("starting pipe ".$stdin->getName());
-    $stdin->startController($shell, $this);
-    
-    foreach ($pipes as $pipe) {
-      omni_trace("starting pipe ".$pipe->getName());
-    
-      $this->processes[] = $pipe->startController($shell, $this);
     }
     
     omni_trace("about to put processes into shell process group");
