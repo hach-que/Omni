@@ -17,6 +17,9 @@ final class InteractiveTTYEditline extends Phobject {
     $this->handleCommand('echo "test" | grep "ll"');
     $this->handleCommand('echo "hello" | grep "t"');
     $this->handleCommand('echo "hello" | grep "ll"');
+    $this->handleCommand('sleep 1');
+    
+    $this->finalize();
   }
 
   public function run() {
@@ -41,6 +44,18 @@ final class InteractiveTTYEditline extends Phobject {
           break;
       }
     }
+    
+    $this->finalize();
+  }
+  
+  public function finalize() {
+    omni_trace("waiting for remaining jobs");
+    
+    foreach ($this->shell->getJobs() as $job) {
+      $this->shell->waitForJob($job);
+    }
+    
+    omni_trace("remaining jobs completed; ready to quit");
   }
   
   public function renderSuggestions($input) {

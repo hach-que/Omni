@@ -144,7 +144,18 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       }
     }
     
+    omni_trace("waiting for foreground job to complete");
+    
     $this->waitForJob($job);
+    
+    omni_trace("foreground job has finished being waited on");
+    if ($job->isCompleted()) {
+      omni_trace("foreground job has completed");
+    } elseif ($job->isStopped()) {
+      omni_trace("foreground job has stopped");
+    } else {
+      omni_trace("WARNING: foreground job is neither completed nor stopped!");
+    }
     
     // Put the shell back into the foreground.
     $this->takeControlOfTerminal();
@@ -193,7 +204,14 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       }
       
       omni_trace("No child process ".$pid.".\n");
-      return true;
+      
+      // NOTE GNU C Shell example shows this as returning true, but if we
+      // return true here we'll break out of waitForJob early if we get
+      // notifications about processes that we're no longer tracking.  Since
+      // we don't care about processes we're no longer tracking, and we don't
+      // want them to cause waitForJob to exit early, we return false here
+      // instead.
+      return false;
     } else if ($pid === 0 || pcntl_get_last_error() == 10 /* ECHILD */) {
       // No processes ready to report.
       return true;
@@ -298,11 +316,16 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     
     $results = omnilang_parse($input);
     
-    omni_trace("visit nodes with result");
-    
-    id(new RootVisitor())->visit($this, $results);
-    
-    omni_trace("execute complete");
+    if ($results === false) {
+      echo omnilang_get_error()."\n";
+      omni_trace("execute failed due to parse error: ".omnilang_get_error());
+    } else {
+      omni_trace("visit nodes with result");
+      
+      id(new RootVisitor())->visit($this, $results);
+      
+      omni_trace("execute complete");
+    }
   }
   
   public function executeFromArray($argv) {
