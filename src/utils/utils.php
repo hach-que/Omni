@@ -32,14 +32,7 @@ final class OmniTrace extends Phobject {
 
 function omni_exit($code) {
   if (OmniTrace::isTracing()) {
-    sleep(1);
-    omni_trace("Omni is now exiting with error code $code.");
-    sleep(1);
-    $trace = debug_backtrace();
-    print_r($trace);
-    sleep(1);
-    omni_trace("Goodbye!");
-    sleep(1);
+    omni_trace("omni with error code $code");
     exit($code);
   } else {
     exit($code);
@@ -53,6 +46,8 @@ function omni_trace($message) {
     fwrite($file, $message."\n");
     fclose($file);
 
-    fd_write(2, $pid.": ".$message."\n");
+    static $stderr;
+    $stderr = fopen('php://stderr', 'w+');
+    fwrite($stderr, $pid.": ".$message."\n");
   }
 }

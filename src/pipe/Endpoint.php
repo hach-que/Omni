@@ -13,6 +13,7 @@ final class Endpoint extends Phobject {
   const FORMAT_NULL_SEPARATED = 'null-separated';
 
   private $nativePipe;
+  private $nativePipePending;
   private $writeFormat = self::FORMAT_PHP_SERIALIZATION;
   private $readFormat = self::FORMAT_PHP_SERIALIZATION;
   private $name = null;
@@ -20,9 +21,11 @@ final class Endpoint extends Phobject {
 
   public function __construct($pipe = null) {
     if ($pipe === null) {
-      $this->nativePipe = fd_pipe();
+      $this->nativePipe = null; /* Pipe is pending until startController */
+      $this->nativePipePending = true;
     } else {
       $this->nativePipe = $pipe;
+      $this->nativePipePending = false;
     }
   }
   
@@ -45,6 +48,10 @@ final class Endpoint extends Phobject {
   }
   
   public function getReadFD() {
+    if ($this->nativePipePending) {
+      throw new Exception('Attempted to call getReadFD on endpoint with non-started pipe');
+    }
+    
     $read = $this->nativePipe['read'];
     if ($read === null) {
       throw new Exception('Attempted to call getReadFD on write-only pipe');
@@ -54,6 +61,10 @@ final class Endpoint extends Phobject {
   }
   
   public function getWriteFD() {
+    if ($this->nativePipePending) {
+      throw new Exception('Attempted to call getReadFD on endpoint with non-started pipe');
+    }
+    
     $write = $this->nativePipe['write'];
     if ($write === null) {
       throw new Exception('Attempted to call getWriteFD on read-only pipe');
@@ -70,6 +81,14 @@ final class Endpoint extends Phobject {
   public function setReadFormat($format) {
     $this->readFormat = $format;
     return $this;
+  }
+  
+  public function instantiatePipe() {
+    if ($this->nativePipePending) {
+      $this->nativePipe = fd_pipe();
+      $this->nativePipePending = false;
+      omni_trace("created a pipe with read FD ".$this->getReadFD()." and write FD ".$this->getWriteFD());
+    }
   }
   
   public function write($object) {

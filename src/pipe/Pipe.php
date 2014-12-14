@@ -267,6 +267,20 @@ final class Pipe extends Phobject {
   }
   
   public function startController(Shell $shell, Job $job) {
+    if ($this->controllerPid !== null) {
+      throw new Exception('Pipe controller has already been started!');
+    }
+  
+    omni_trace("starting pipe controller");
+    
+    omni_trace("instantiating native pipes for endpoints");
+    foreach ($this->inboundEndpoints as $endpoint) {
+      $endpoint->instantiatePipe();
+    }
+    foreach ($this->outboundEndpoints as $endpoint) {
+      $endpoint->instantiatePipe();
+    }
+  
     omni_trace("forking omni for pipe controller");
   
     $pid = pcntl_fork();
