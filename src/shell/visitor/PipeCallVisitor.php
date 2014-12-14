@@ -2,13 +2,14 @@
 
 final class PipeCallVisitor extends Visitor {
   
-  public function visit(Shell $shell, array $data) {
+  protected function visitImpl(Shell $shell, array $data) {
     $arguments = $this->visitChild($shell, $data['children'][0]);
     
     $operation = 'new';
     $pipe = null;
     $distribution = null;
     $convert_type = null;
+    $target_fd = null;
     
     for ($i = 0; $i < count($arguments); $i++) {
       $arg = $arguments[$i];
@@ -39,6 +40,9 @@ final class PipeCallVisitor extends Visitor {
           $type = $arguments[++$i];
           $convert_type = $type; 
           break;
+        case '--fd':
+          $target_fd = $arguments[++$i];
+          break;
         case '-h':
         case '--help':
           $help = <<<EOF
@@ -50,35 +54,52 @@ to create a new pipe.
   General options:
   
   -c                 Create a new pipe (default).
+  
   -m pipe            Modify an existing pipe.
+  
+  --fd fd            Attach the file descriptor to the new or existing
+                     pipe.  You can use the special values "stdin",
+                     "stdout" and "stderr" to refer to file descriptors
+                     0, 1 and 2 respectively.
   
   Distribution options:
   
   -d method          Specifies how objects should be distributed to the
                      outbound streams.  The methods are as follows:
   
+     round-robin     Each received object is sent to the next outbound stream,
+                     in a round robin manner such that all outbound streams
+                     receive objects evenly.
+  
      split           The set of objects retrieved from the input streams are
-                     evenly split amongst the output streams that can
-                     accept them.
+                     evenly split amongst the output streams.
 
   Conversion options:
 
   -b
   --boolean          Specifies this pipe should convert values to booleans.
+  
   -i
   --integer          Specifies this pipe should convert values to integers.
+  
   -f
   --float            Specifies this pipe should convert values to floats.
+  
   -s
   --string           Specifies this pipe should convert values to strings.
+  
   -a
   --array            Specifies this pipe should convert values to arrays.
+  
   -o
   --object           Specifies this pipe should convert values to generic objects.
+  
   --resource         Specifies this pipe should convert values to resources.  Given
                      there's no way to convert resources, this serves only to assert
                      that a pipe's input objects are all resources.
+                     
   --null             Specifies this pipe should convert values to null.
+  
   -t type            Specifies this pipe should convert values to the specified type.
 
 EOF;

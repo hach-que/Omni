@@ -2,7 +2,17 @@
 
 abstract class Visitor {
   
-  abstract function visit(Shell $shell, array $data);
+  public function visit(Shell $shell, array $data) {
+    omni_trace("begin visit ".get_class($this));
+    
+    $value = $this->visitImpl($shell, $data);
+    
+    omni_trace("end visit ".get_class($this));
+    
+    return $value;
+  }
+  
+  protected abstract function visitImpl(Shell $shell, array $data);
   
   protected function visitChild(Shell $shell, array $child) {
     $mappings = array(

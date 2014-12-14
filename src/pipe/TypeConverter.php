@@ -12,6 +12,15 @@ final class TypeConverter extends Phobject {
   const TYPE_NULL = 'NULL';
   const TYPE_JSON = 'JsonContainer';
   const TYPE_RAW_BYTES = 'PhutilRope';
+  
+  public function getType($value) {
+    $type = gettype($value);
+    if ($type === 'object') {
+      return get_class($value);
+    } else {
+      return $type;
+    }
+  }
 
   public function convert($value, $type, $permit_nulls = true) {
     switch (gettype($value)) {

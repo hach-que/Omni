@@ -10,4 +10,8 @@ final class ByteStreamEndpointTestCase extends EndpointTestCase {
     return true;
   }
   
+  public function testNull() {
+    $this->assertSkipped('Endpoints can not read 0 length data');
+  }
+  
 }

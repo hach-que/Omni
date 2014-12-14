@@ -65,6 +65,7 @@ abstract class EndpointTestCase extends PhutilTestCase {
     $endpoint->setWriteFormat($this->getSerializationFormat());
     $endpoint->write($expected_value);
     $value = $endpoint->read();
+    $endpoint->close();
     if ($value == $expected_value) {
       $this->assertEqual(0, 0);
     } else {
@@ -87,6 +88,7 @@ abstract class EndpointTestCase extends PhutilTestCase {
     $endpoint->setWriteFormat($this->getSerializationFormat());
     $endpoint->write($expected_value);
     $value = $endpoint->read();
+    $endpoint->close();
     $this->assertEqual(print_r($expected_value, true), print_r($value, true));
   }
   

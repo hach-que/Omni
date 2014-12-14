@@ -27,25 +27,38 @@ $result = $args->parsePartial(
     ),
 ));
 
+if ($args->getArg('trace')) {
+  // Enable tracing for both PHP and native extensions.
+  OmniTrace::enableTracing();
+}
+
 $command = $args->getArg('command');
+
+omni_trace("starting");
 
 if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));
   print_r($result);
   if ($result === false) {
-    exit(1);
+    omni_exit(1);
   } else {
-    exit(0);
+    omni_exit(0);
   }
 }
 
+omni_trace("check if tty");
+
 if (posix_isatty(Shell::STDIN_FILENO) && count($command) === 0) {
+  omni_trace("starting interactive shell");
+
   // Run as an interactive shell.
   $tty = new InteractiveTTYEditline();
   $tty->run();
 } else {
+  omni_trace("executing command");
+
   $shell = new Shell();
   $shell->executeFromArray($command);
 }
 
-exit(0);
+omni_exit(0);

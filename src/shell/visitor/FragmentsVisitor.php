@@ -2,7 +2,7 @@
 
 final class FragmentsVisitor extends Visitor {
   
-  public function visit(Shell $shell, array $data) {
+  protected function visitImpl(Shell $shell, array $data) {
     if (count($data['children']) === 1) {
       // Preserve the data type of the child if there is only a
       // single child.

@@ -1,12 +1,12 @@
 <?php
 
-final class Shell extends Phobject {
+final class Shell extends Phobject implements HasTerminalModesInterface {
 
   const STDIN_FILENO = 0;
   const STDOUT_FILENO = 1;
   const STDERR_FILENO = 2;
 
-  private $pgid = null;
+  private $shellProcessGroupID = null;
   private $tmodes;
   private $terminal;
   private $isInteractive;
@@ -16,32 +16,24 @@ final class Shell extends Phobject {
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
-      ->withAncestorClass('Builtin')
+      ->setAncestorClass('Builtin')
       ->loadObjects();
     $this->builtins = mpull($this->builtins, null, 'getName');
   }
   
-  public function isKnownBuiltin($name) {
-    return idx($this->builtins, $name, null) !== null;
-  }
   
-  public function lookupBuiltin($name) {
-    return idx($this->builtins, $name, null);
-  }
+/* -(  Shell Initialization  )----------------------------------------------- */
   
-  public function findJob($pgid) {
-    return idx($this->jobs, $pgid, null);
-  }
   
-  public function run() {
+  public function initialize() {
     // Check if we are running interactively.
     $this->terminal = self::STDIN_FILENO;
     $this->isInteractive = posix_isatty($this->terminal);
     
     if ($this->isInteractive) {
       // Loop until we are in the foreground.
-      while (omni_tcgetpgrp($this->terminal) != ($this->pgid = posix_getpgrp())) {
-        posix_kill(-$this->pgid, SIGTTIN);
+      while (tc_tcgetpgrp($this->terminal) != ($this->shellProcessGroupID = posix_getpgrp())) {
+        posix_kill(-$this->shellProcessGroupID, SIGTTIN);
       }
       
       // Ignore interactive and job-control signals.
@@ -53,39 +45,35 @@ final class Shell extends Phobject {
       pcntl_signal(SIGCHLD, SIG_IGN);
       
       // Put ourselves in our own process group.
-      $this->pgid = posix_getpid();
-      if (posix_setpgid($this->pgid, $this->pgid) < 0) {
-        self::writeToStderr("Couldn't put the shell in it's own process group");
-        exit(1);
+      $this->shellProcessGroupID = posix_getpid();
+      if (posix_setpgid($this->shellProcessGroupID, $this->shellProcessGroupID) < 0) {
+        omni_trace("Couldn't put the shell in it's own process group");
+        omni_exit(1);
       }
       
-      omni_tcsetpgrp($this->terminal, $this->pgid);
+      // Grab control of the terminal.
+      $this->takeControlOfTerminal();
       
-      $this->tmodes = omni_tcgetattr($this->terminal);
+      // Save the terminal defaults for the shell.
+      $this->setTerminalModes($this->captureCurrentTerminalModes());
     }
   }
   
+  
+/* -(  Launching Processes  )------------------------------------------------ */
+  
+  
   public function launchProcess(
-    array $argv, 
+    array $argv,
+    Job $job,
     $inFD = self::STDIN_FILENO,
     $outFD = self::STDOUT_FILENO,
-    $errFD = self::STDERR_FILENO,
-    $foreground = true) {
+    $errFD = self::STDERR_FILENO) {
     
     if ($this->isInteractive) {
-      // Put the process into the process group and give
-      // the process group the terminal, if appropriate.
-      // This has to be done both by the shell and in the
-      // individual child processes because of potential
-      // race conditions.
-      $pid = posix_getpid();
-      if ($this->pgid === null) {
-        $this->pgid = $pid;
-      }
-      posix_setpgid($pid, $this->pgid);
-      if ($foreground) {
-        omni_tcsetpgrp($this->terminal, $this->pgid);
-      }
+      $this->putProcessInProcessGroupIfInteractiveFromChild($job);
+      
+      $this->giveControlOfTerminalToJobIfForeground($job);
       
       // Restore signal handling back to the default.
       pcntl_signal(SIGINT, SIG_DFL);
@@ -97,99 +85,44 @@ final class Shell extends Phobject {
     }
     
     if ($inFD !== self::STDIN_FILENO) {
-      omni_dup2($inFD, self::STDIN_FILENO);
-      omni_close($inFD);
+      fd_dup2($inFD, self::STDIN_FILENO);
+      fd_close($inFD);
     }
     if ($outFD !== self::STDOUT_FILENO) {
-      omni_dup2($outFD, self::STDOUT_FILENO);
-      omni_close($outFD);
+      fd_dup2($outFD, self::STDOUT_FILENO);
+      fd_close($outFD);
     }
     if ($errFD !== self::STDERR_FILENO) {
-      omni_dup2($errFD, self::STDERR_FILENO);
-      omni_close($errFD);
+      fd_dup2($errFD, self::STDERR_FILENO);
+      fd_close($errFD);
     }
     
     $path = array_shift($argv);
     
     if (@pcntl_exec($path, $argv) === false) {
-      self::writeToStderr("error: $path: ".pcntl_strerror(pcntl_get_last_error())."\n");
-      exit(1);
+      omni_trace("error: $path: ".pcntl_strerror(pcntl_get_last_error())."\n");
+      omni_exit(1);
     }
   }
   
-  public function launchJob(Job $job, $foreground = true) {
-    $process = null;
-    $pid = null;
-    $pipe = null;
-    
-    $myfile = array();
-    $infile = $job->stdin;
-    $outfile = null;
-    
-    $processes = $job->processes;
-    $processes_count = count($processes);
-    for ($i = 0; $i < $processes_count; $i++) {
-      $process = $processes[$i];
-    
-      if ($i !== $processes_count - 1) {
-        // If this is not the last process in the list,
-        // then we need a pipe to connect it to.
-        $pipe = omni_pipe();
-      
-        if ($pipe === false) {
-          echo "error: pipe\n";
-          exit(1);
-        }
-        
-        $outfile = $pipe['write'];
-      } else {
-        // This is the last process, so connect it to
-        // the job standard output.
-        $outfile = $job->stdout;
-      }
-      
-      // Fork the child process.
-      $pid = pcntl_fork();
-      if ($pid === 0) {
-        // This is the child process.
-        $this->launchProcess(
-          $process,
-          $infile,
-          $outfile,
-          $job->stderr,
-          $foreground);
-      } else if ($pid < 0) {
-        // The fork failed.
-        self::writeToStderr("error: fork\n");
-        exit(1);
-      } else {
-        // This is the parent process.
-        $process->pid = $pid;
-        if ($this->isInteractive) {
-          if ($job->pgid === null) {
-            $job->pgid = $pid;
-          }
-          posix_setpgid($pid, $job->pgid);
-        }
-      }
-      
-      // Clean up after pipes.
-      if ($infile !== $job->stdin) {
-        omni_close($infile);
-      }
-      if ($outfile !== $job->stdout) {
-        omni_close($outfile);
-      }
-      if ($pipe !== null) {
-        $infile = $pipe['read'];
-      }
-    }
-
-    //$this->formatJobInfo($job, "launched");
-    
+  
+/* -(  Job Scheduling and Process Management )------------------------------- */
+  
+  
+  public function getJobs() {
+    return $this->jobs;
+  }
+  
+  public function findJob($pgid) {
+    return idx($this->jobs, $pgid, null);
+  }
+  
+  public function scheduleJob(Job $job) {
+    $this->jobs[$job->getProcessGroupIDOrAssert()] = $job;
+  
     if (!$this->isInteractive) {
       $this->waitForJob($job);
-    } else if ($foreground) {
+    } else if ($job->isForeground()) {
       $this->putJobInForeground($job, false);
     } else {
       $this->putJobInBackground($job, false);
@@ -197,69 +130,77 @@ final class Shell extends Phobject {
   }
   
   public function putJobInForeground(Job $job, $continue = false) {
+    $job->setForeground(true);
+  
     // Put the job into the foreground.
-    omni_tcsetpgrp($this->terminal, $job->pgid);
+    $this->giveControlOfTerminalToJobIfForeground($job);
     
     // Send the job a continue signal, if necessary.
     if ($continue) {
-      omni_tcsetattr_tcsadrain($this->terminal, $job->tmodes);
-      if (!posix_kill(-$job->pgid, SIGCONT)) {
-        self::writeToStderr("error: kill SIGCONT\n");
+      $this->applyTerminalModes($job);
+      
+      if (!posix_kill(-$job->getProcessGroupIDOrAssert(), SIGCONT)) {
+        omni_trace("error: kill SIGCONT\n");
       }
     }
     
     $this->waitForJob($job);
     
     // Put the shell back into the foreground.
-    omni_tcsetpgrp($this->terminal, $job->pgid);
+    $this->takeControlOfTerminal();
     
     // Restore the shell's terminal modes.
-    $tmodes = omni_tcgetattr($this->terminal);
-    omni_tcsetattr_tcsadrain($this->terminal, $tmodes);
+    $job->setTerminalModes($this->captureCurrentTerminalModes());
+    $this->applyTerminalModes($this);
   }
   
   public function putJobInBackground(Job $job, $continue = false) {
     // Send the job a continue signal, if necessary.
     if ($continue) {
-      if (!posix_kill(-$job->pgid, SIGCONT)) {
-        self::writeToStderr("error: kill SIGCONT\n");
+      if (!posix_kill(-$job->getProcessGroupIDOrAssert(), SIGCONT)) {
+        omni_trace("error: kill SIGCONT\n");
       }
     }
   }
   
-  public function markProcessStatus($pid, $status) {
+  private function markProcessStatus($pid, $status) {
     if ($pid > 0) {
       // Update the record for the process.
       foreach ($this->jobs as $job) {
-        foreach ($job->processes as $process) {
-          if ($process->pid === $pid) {
-            $process->status = $status;
+        foreach ($job->getProcesses() as $process) {
+          if ($process->getProcessID() === $pid) {
+            $process->setProcessStatus($status);
             if (pcntl_wifstopped($status)) {
-              $process->stopped = true;
+              $process->setStopped(true);
             } else {
-              $process->completed = true;
+              $process->setCompleted(true);
               if (pcntl_wifsignaled($status)) {
-                // TODO stderr
-                self::writeToStderr(
+                omni_trace(
                   $pid.": Terminated by signal ".
-                  pcntl_wtermsig($process->status).".\n");
+                  pcntl_wtermsig($process->getProcessStatus()).".\n");
               }
             }
-            return 0;
+            
+            // Perform any clean up operations for the job when
+            // it's completed.
+            if ($job->isCompleted()) {
+              $job->finalize();
+            }
+            
+            return false;
           }
         }
       }
       
-      // TODO stderr
-      //self::writeToStderr("No child process ".$pid.".\n");
-      return -1;
+      omni_trace("No child process ".$pid.".\n");
+      return true;
     } else if ($pid === 0 || pcntl_get_last_error() == 10 /* ECHILD */) {
       // No processes ready to report.
-      return -1;
+      return true;
     } else {
       // Other weird errors.
-      self::writeToStderr("error: waitpid: ".pcntl_strerror(pcntl_get_last_error())."\n");
-      return -1;
+      omni_trace("error: waitpid: ".pcntl_strerror(pcntl_get_last_error())."\n");
+      return true;
     }
   }
   
@@ -278,6 +219,17 @@ final class Shell extends Phobject {
     
     do {
       $pid = pcntl_waitpid(-1, $status, WUNTRACED);
+      omni_trace("got signal for $pid: $status\n");
+      
+      foreach ($job->getProcesses() as $process) {
+        omni_trace(print_r(array(
+          'pid' => $process->getProcessID(),
+          'type' => $process->getProcessType(),
+          'status' => $process->getProcessStatus(),
+          'stopped?' => $process->isStopped(),
+          'completed?' => $process->isCompleted(),
+        ), true));
+      }
     } while (
       !$this->markProcessStatus($pid, $status) &&
       !$job->isStopped() &&
@@ -285,13 +237,7 @@ final class Shell extends Phobject {
   }
   
   public function formatJobInfo(Job $job, $status) {
-    self::writeToStderr($job->pgid." (".$status."): ".$job->command."\n");
-  }
-  
-  public static function writeToStderr($message) {
-    static $stderr;
-    $stderr = fopen('php://stderr', 'w+');
-    fwrite($stderr, $message);
+    omni_trace($job->getProcessGroupIDOrAssert()." (".$status."): ".$job->getCommand()."\n");
   }
   
   public function doJobNotification() {
@@ -309,36 +255,124 @@ final class Shell extends Phobject {
       // Notify the user about stopped jobs.
       else if ($job->isStopped() && !$job->notified) {
         $this->formatJobInfo($job, "stopped");
-        $job->notified = true;
+        $job->setUserBeenNotifiedOfNewStatus(true);
       }
     }
   }
   
   public function markJobAsRunning(Job $job) {
-    foreach ($job->processes as $process) {
-      $process->stopped = false;
+    foreach ($job->getProcesses() as $process) {
+      $process->setStopped(false);
     }
     
-    $job->notified = false;
+    $job->setUserBeenNotifiedOfNewStatus(false);
   }
   
-  public function continueJob(Job $job, $foreground = true) {
+  public function continueJob(Job $job) {
     $this->markJobAsRunning($job);
-    if ($foreground) {
+    if ($job->isForeground()) {
       $this->putJobInForeground($job, true);
     } else {
       $this->putJobInBackground($job, true);
     }
   }
   
+  
+/* -(  Builtins  )----------------------------------------------------------- */
+  
+  
+  public function isKnownBuiltin($name) {
+    return idx($this->builtins, $name, null) !== null;
+  }
+  
+  public function lookupBuiltin($name) {
+    return idx($this->builtins, $name, null);
+  }
+  
+  
+/* -(  Execute Commands  )--------------------------------------------------- */
+  
+  
   public function execute($input) {
+    omni_trace("start parse");
+    
     $results = omnilang_parse($input);
+    
+    omni_trace("visit nodes with result");
+    
     id(new RootVisitor())->visit($this, $results);
+    
+    omni_trace("execute complete");
   }
   
   public function executeFromArray($argv) {
     $this->execute(implode(' ', $argv));
   }
+  
+  
+/* -(  Set and Get Shell Terminal Modes  )----------------------------------- */
+  
+  
+  public function setTerminalModes($terminal_modes) {
+    $this->tmodes = $terminal_modes;
+    return $this;
+  }
+  
+  public function getTerminalModes() {
+    return $this->tmodes;
+  }
+  
+  
+/* -(  Apply and Restore Terminal Modes  )----------------------------------- */
+  
+  
+  private function applyTerminalModes(HasTerminalModesInterface $modes) {
+    tc_tcsetattr($this->terminal, tc_tcsadrain(), $modes->getTerminalModes());
+  }
+  
+  private function captureCurrentTerminalModes() {
+    return tc_tcgetattr($this->terminal);
+  }
+  
+  
+/* -(  Terminal Control  )--------------------------------------------------- */
+  
+  
+  private function giveControlOfTerminalToJobIfForeground(Job $job) {
+    if ($job->isForeground()) {
+      // Give control of the terminal to the child process.
+      tc_tcsetpgrp($this->terminal, $job->getProcessGroupIDOrAssert());
+    }
+  }
+  
+  private function takeControlOfTerminal() {
+    tc_tcsetpgrp($this->terminal, $this->shellProcessGroupID);
+  }
+  
+  
+/* -(  Process Groups  )----------------------------------------------------- */
+  
+  
+  public function putProcessInProcessGroupIfInteractive(Job $job, $pid) {
+    if ($this->isInteractive) {
+      posix_setpgid($pid, $job->getProcessGroupID($pid));
+    }
+  }
+  
+  private function putProcessInProcessGroupIfInteractiveFromChild(Job $job) {
+    // Put the process into the process group and give
+    // the process group the terminal, if appropriate.
+    // This has to be done both by the shell and in the
+    // individual child processes because of potential
+    // race conditions.
+    $pid = posix_getpid();
+    $pgid = $job->getProcessGroupID($pid);
+    posix_setpgid($pid, $pgid);
+  }
+  
+  
+/* -(  Shell Variables  )---------------------------------------------------- */
+  
   
   public function setVariable($key, $value) {
     $this->variables[$key] = $value;

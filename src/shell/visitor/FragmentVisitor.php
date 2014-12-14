@@ -2,7 +2,7 @@
 
 final class FragmentVisitor extends Visitor {
   
-  public function visit(Shell $shell, array $data) {
+  protected function visitImpl(Shell $shell, array $data) {
     return $data['data'];
   }
   

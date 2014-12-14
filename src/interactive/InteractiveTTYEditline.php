@@ -8,6 +8,7 @@ final class InteractiveTTYEditline extends Phobject {
 
   public function run() {
     $this->shell = new Shell();
+    $this->shell->initialize();
     
     editline_begin();
     
@@ -68,11 +69,19 @@ final class InteractiveTTYEditline extends Phobject {
   }
   
   public function handleCommand($input) {
+    omni_trace("clear suggestions");
+    
     $this->clearSuggestions();
+    
+    omni_trace("execute input");
     
     $this->shell->execute($input);
     
+    omni_trace("begin editline again");
+    
     editline_begin();
+    
+    omni_trace("ready for editline input");
   }
 
   public function getPrompt() {
