@@ -2,6 +2,8 @@
 
 interface ProcessInterface {
 
+  public function hasProcessID();
+
   public function getProcessID();
 
   public function getProcessType();

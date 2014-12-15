@@ -15,9 +15,9 @@ final class PipelineVisitor extends Visitor {
     $stdin_pipe = new Pipe();
     $stdin_pipe->attachStdinEndpoint(Endpoint::FORMAT_BYTE_STREAM);
     $stdout_pipe = new Pipe();
-    $stdout_pipe->attachStdoutEndpoint(Endpoint::FORMAT_BYTE_STREAM);
+    $stdout_pipe->attachStdoutEndpoint(Endpoint::FORMAT_USER_FRIENDLY);
     $stderr_pipe = new Pipe();
-    $stderr_pipe->attachStderrEndpoint(Endpoint::FORMAT_BYTE_STREAM);
+    $stderr_pipe->attachStderrEndpoint(Endpoint::FORMAT_USER_FRIENDLY);
     
     omni_trace("configuring job background / foreground before execution");
     

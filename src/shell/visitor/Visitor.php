@@ -22,6 +22,7 @@ abstract class Visitor {
       'double_quoted' => 'DoubleQuotedVisitor',
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
+      'number' => 'NumberVisitor',
       'pipeline' => 'PipelineVisitor',
       'root' => 'RootVisitor',
       'single_quoted' => 'SingleQuotedVisitor',

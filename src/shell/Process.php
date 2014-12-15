@@ -16,8 +16,8 @@ final class Process
     $this->arguments = $argv;
   }
   
-  public function getCommand() {
-    return $this->command;
+  public function hasProcessID() {
+    return $this->pid !== null;
   }
   
   public function getProcessID() {
@@ -90,6 +90,13 @@ final class Process
     $data = idx($prepare_data, 'data');
     
     $this->pid = $target->launch($shell, $job, $data);
+    
+    if ($this->pid === null) {
+      // Launch did not result in the creation of a new process
+      // (e.g. it was a builtin).  The launch ran all of the required
+      // logic, so we mark this process as already completed.
+      $this->setCompleted(true);
+    }
     
     return $this;
   }

@@ -49,6 +49,10 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     return $this->pgid;
   }
   
+  public function getProcessGroupIDOrNull() {
+    return $this->pgid;
+  }
+  
   public function getProcesses() {
     return $this->processes;
   }
@@ -157,13 +161,23 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("i am PID ".posix_getpid());
     
-    omni_trace("starting pipe ".$stdin->getName());
-    $stdin->startController($shell, $this);
+    if ($stdin->isValid()) {
+      omni_trace("starting pipe ".$stdin->getName());
+      $this->processes[] = $stdin->startController($shell, $this, true);
+    } else {
+      omni_trace("not starting stdin pipe because it has no outbound endpoints");
+    } 
     
     foreach ($pipes as $pipe) {
-      omni_trace("starting pipe ".$pipe->getName());
-    
-      $this->processes[] = $pipe->startController($shell, $this);
+      if ($pipe->isValid()) {
+        omni_trace("starting pipe ".$pipe->getName());
+      
+        $this->processes[] = $pipe->startController($shell, $this);
+      } else {
+        omni_trace(
+          "pipe not valid because it has either no inbound ".
+          "or outbound endpoints: ".$pipe->getName());
+      }
     }
     
     omni_trace("getting ready to launch executables");
@@ -179,7 +193,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       
       omni_trace("adding result processes");
       
-      if ($result instanceof ProcessInterface) {
+      if ($result === null) {
+        continue;
+      } if ($result instanceof ProcessInterface) {
         $this->processes[] = $result;
       } elseif (is_array($result)) {
         foreach ($result as $a) {
@@ -187,7 +203,23 @@ final class Job extends Phobject implements HasTerminalModesInterface {
             $this->processes[] = $a;
           }
         }
+      } else {
+        throw new Exception('Unknown return value from launching process');
       }
+    }
+    
+    $has_external_processes = false;
+    foreach ($this->processes as $process) {
+      if ($process->hasProcessID()) {
+        $has_external_processes = true;
+      }
+    }
+    
+    if (!$has_external_processes) {
+      omni_trace(
+        "launch of job did not create any external processes;".
+        "skipping process grouping and scheduling");
+      return;
     }
     
     omni_trace("about to put processes into shell process group");
@@ -195,6 +227,10 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     // Put all of the native processes of this job into the
     // job's process group.
     foreach ($this->processes as $process) {
+      if (!$process->hasProcessID()) {
+        continue;
+      }
+      
       omni_trace("putting ".$process->getProcessID()." into shell process group");
       
       $shell->putProcessInProcessGroupIfInteractive($this, $process->getProcessID());

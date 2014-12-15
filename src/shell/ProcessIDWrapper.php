@@ -17,6 +17,10 @@ final class ProcessIDWrapper
     $this->description = $description;
   }
   
+  public function hasProcessID() {
+    return $this->pid !== null;
+  }
+  
   public function getProcessID() {
     return $this->pid;
   }

@@ -13,6 +13,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $jobs = array();
   private $variables = array();
   private $builtins;
+  private $isExiting;
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
@@ -31,8 +32,12 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $this->isInteractive = posix_isatty($this->terminal);
     
     if ($this->isInteractive) {
+      omni_trace("ensuring foreground control");
+      
       // Loop until we are in the foreground.
       while (tc_tcgetpgrp($this->terminal) != ($this->shellProcessGroupID = posix_getpgrp())) {
+        omni_trace("sending SIGTTIN to ".$this->shellProcessGroupID." because it's not ".tc_tcgetpgrp($this->terminal));
+      
         posix_kill(-$this->shellProcessGroupID, SIGTTIN);
       }
       
@@ -60,16 +65,69 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   }
   
   
+/* -(  Shell Shutdown  )----------------------------------------------------- */
+  
+  
+  public function requestExit() {
+    $this->isExiting = true;
+  }
+  
+  public function wantsToExit() {
+    return $this->isExiting;
+  }
+  
+  public function finalize() {
+    omni_trace("waiting for remaining jobs");
+    
+    $stderr_endpoint = $this->createInternalStderrEndpoint();
+    
+    $waiting = true;
+    while ($waiting) {
+      $waiting = false;
+      $wait_count = 0;
+      foreach ($this->getJobs() as $job) {
+        if (!$job->isCompleted()) {
+          if (!$job->isStopped()) {
+            $waiting = true;
+            $wait_count++;
+          }
+        }
+      }
+      
+      if ($waiting) {
+        $stderr_endpoint->write('Waiting for '.$wait_count.' background jobs to complete...'."\n");
+      }
+      
+      $this->waitForAnyJob();
+    }
+    
+    $stderr_endpoint->closeWrite();
+    
+    omni_trace("restoring terminal modes");
+    
+    if ($this->isInteractive) {
+      $this->applyTerminalModes($this);
+    }
+    
+    omni_trace("remaining jobs completed; ready to quit");
+  }
+  
+  
+/* -(  General Output  )----------------------------------------------------- */
+
+
+  public function createInternalStderrEndpoint() {
+    return id(new Endpoint(array('read' => null, 'write' => Shell::STDERR_FILENO)))
+      ->setName("shell stderr")
+      ->setWriteFormat(Endpoint::FORMAT_USER_FRIENDLY)
+      ->setClosable(false);
+  }
+  
+  
 /* -(  Launching Processes  )------------------------------------------------ */
   
   
-  public function launchProcess(
-    array $argv,
-    Job $job,
-    $inFD = self::STDIN_FILENO,
-    $outFD = self::STDOUT_FILENO,
-    $errFD = self::STDERR_FILENO) {
-    
+  public function prepareForkedProcess(Job $job) {
     if ($this->isInteractive) {
       $this->putProcessInProcessGroupIfInteractiveFromChild($job);
       
@@ -83,6 +141,16 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       pcntl_signal(SIGTTOU, SIG_DFL);
       pcntl_signal(SIGCHLD, SIG_DFL);
     }
+  }
+  
+  public function launchProcess(
+    array $argv,
+    Job $job,
+    $inFD = self::STDIN_FILENO,
+    $outFD = self::STDOUT_FILENO,
+    $errFD = self::STDERR_FILENO) {
+    
+    $this->prepareForkedProcess($job);
     
     if ($inFD !== self::STDIN_FILENO) {
       fd_dup2($inFD, self::STDIN_FILENO);
@@ -231,6 +299,15 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     } while (!$this->markProcessStatus($pid, $status));
   }
   
+  public function waitForAnyJob() {
+    $status = null;
+    $pid = null;
+    
+    do {
+      $pid = pcntl_waitpid(-1, $status, WUNTRACED);
+    } while (!$this->markProcessStatus($pid, $status));
+  }
+  
   public function waitForJob($job) {
     $status = null;
     $pid = null;
@@ -243,6 +320,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
         omni_trace(print_r(array(
           'pid' => $process->getProcessID(),
           'type' => $process->getProcessType(),
+          'description' => $process->getProcessDescription(),
           'status' => $process->getProcessStatus(),
           'stopped?' => $process->isStopped(),
           'completed?' => $process->isCompleted(),
@@ -364,12 +442,33 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private function giveControlOfTerminalToJobIfForeground(Job $job) {
     if ($job->isForeground()) {
       // Give control of the terminal to the child process.
+      omni_trace("giving control of terminal to ".$job->getProcessGroupIDOrAssert());
       tc_tcsetpgrp($this->terminal, $job->getProcessGroupIDOrAssert());
     }
   }
   
-  private function takeControlOfTerminal() {
-    tc_tcsetpgrp($this->terminal, $this->shellProcessGroupID);
+  public function takeControlOfTerminal() {
+    omni_trace("taking control of terminal back to ".$this->shellProcessGroupID);
+    if (!tc_tcsetpgrp($this->terminal, $this->shellProcessGroupID)) {
+      omni_trace("FAILED TO TAKE CONTROL OF TERMINAL!!!!");
+      omni_trace("ERROR FROM TCSETPGRP WAS: ".tc_get_error());
+      throw new Exception('Unable to regain control of terminal');
+    }
+    
+    omni_trace("shell process group ID as per posix_getpgid: ".posix_getpgid(posix_getpid()));
+    omni_trace("shell process group ID as per posix_getpgrp: ".posix_getpgrp());
+    omni_trace("shell process group ID as per private variable: ".$this->shellProcessGroupID);
+    omni_trace("controlling process group ID as per tc_tcgetpgrp:".tc_tcgetpgrp($this->terminal));
+  }
+  
+  public function verifyReadingFromStandardInputWillWork() {
+    if (tc_tcgetpgrp($this->terminal) !== $this->shellProcessGroupID) {
+      throw new Exception('Shell process group is not controlling terminal');
+    }
+    
+    if (posix_getpgid(posix_getppid()) === false) {
+      throw new Exception('Shell\'s parent process is no longer running; won\'t be able to recover stdin');
+    }
   }
   
   
@@ -378,7 +477,15 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   public function putProcessInProcessGroupIfInteractive(Job $job, $pid) {
     if ($this->isInteractive) {
-      posix_setpgid($pid, $job->getProcessGroupID($pid));
+      if (!is_integer($pid)) {
+        throw new Exception('Non-integer PID passed to putProcessInProcessGroupIfInteractive');
+      }
+      if ($pid === $this->shellProcessGroupID) {
+        throw new Exception('Attempting to place shell into job process group!');
+      }
+      $pgid = $job->getProcessGroupID($pid);
+      omni_trace("moving $pid into process group ".$pgid);
+      posix_setpgid($pid, $pgid);
     }
   }
   
@@ -389,7 +496,14 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     // individual child processes because of potential
     // race conditions.
     $pid = posix_getpid();
+    if (!is_integer($pid)) {
+      throw new Exception('Non-integer PID returned from posix_getpid in putProcessInProcessGroupIfInteractiveFromChild');
+    }
+    if ($pid === $this->shellProcessGroupID) {
+      throw new Exception('Called putProcessInProcessGroupIfInteractiveFromChild while still in shell!');
+    }
     $pgid = $job->getProcessGroupID($pid);
+    omni_trace("moving $pid into process group $pgid");
     posix_setpgid($pid, $pgid);
   }
   

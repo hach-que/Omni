@@ -16,6 +16,8 @@ final class Pipe extends Phobject {
   private $outboundEndpoints = array();
   private $controllerPid = null;
   private $roundRobinCounter = 0;
+  private $defaultInboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
+  private $defaultOutboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   
   public function getName() {
     $inbound_names = mpull($this->inboundEndpoints, 'getName');
@@ -44,6 +46,24 @@ final class Pipe extends Phobject {
     return $this;
   }
   
+  public function setDefaultInboundFormat($format) {
+    if ($this->controllerPid !== null) {
+      throw new Exception('Pipe is immutable; controller has been started.');
+    }
+  
+    $this->defaultInboundFormat = $format;
+    return $this;
+  }
+  
+  public function setDefaultOutboundFormat($format) {
+    if ($this->controllerPid !== null) {
+      throw new Exception('Pipe is immutable; controller has been started.');
+    }
+  
+    $this->defaultOutboundFormat = $format;
+    return $this;
+  }
+  
   /**
    * Creates and returns an inbound endpoint.  An inbound endpoint
    * is one that is written to in order to push data into this
@@ -55,7 +75,7 @@ final class Pipe extends Phobject {
     }
   
     if ($format === null) {
-      $format = Endpoint::FORMAT_PHP_SERIALIZATION;
+      $format = $this->defaultInboundFormat;
     }
     
     $endpoint = id(new Endpoint())
@@ -77,7 +97,7 @@ final class Pipe extends Phobject {
     }
   
     if ($format === null) {
-      $format = Endpoint::FORMAT_PHP_SERIALIZATION;
+      $format = $this->defaultOutboundFormat;
     }
     
     $endpoint = id(new Endpoint())
@@ -97,7 +117,7 @@ final class Pipe extends Phobject {
     }
   
     if ($format === null) {
-      $format = Endpoint::FORMAT_PHP_SERIALIZATION;
+      $format = $this->defaultInboundFormat;
     }
     
     $endpoint = id(new Endpoint(array('read' => Shell::STDIN_FILENO, 'write' => null)))
@@ -118,7 +138,7 @@ final class Pipe extends Phobject {
     }
   
     if ($format === null) {
-      $format = Endpoint::FORMAT_PHP_SERIALIZATION;
+      $format = $this->defaultOutboundFormat;
     }
     
     $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDOUT_FILENO)))
@@ -139,7 +159,7 @@ final class Pipe extends Phobject {
     }
   
     if ($format === null) {
-      $format = Endpoint::FORMAT_PHP_SERIALIZATION;
+      $format = $this->defaultOutboundFormat;
     }
     
     $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDERR_FILENO)))
@@ -182,6 +202,11 @@ final class Pipe extends Phobject {
     $inbound_fds = idx($result, 'read');
     $outbound_fds = idx($result, 'write');
     $except_fds = idx($result, 'except');
+    
+    omni_trace("!!! select returned with ".$streams_ready." ready streams");
+    if ($streams_ready === 0) {
+      omni_trace("WARNING: SELECT RETURNING WITH NO READY STREAMS!");
+    }
     
     // Read objects from all the streams that are
     // ready for reading.
@@ -253,6 +278,8 @@ final class Pipe extends Phobject {
   
   public function controllerReceivedSIGTERM() {
     omni_trace("controller got SIGTERM!");
+    
+    pcntl_signal(SIGTERM, SIG_DFL);
   
     // Close off all endpoints.
     foreach ($this->inboundEndpoints as $endpoint) {
@@ -266,7 +293,11 @@ final class Pipe extends Phobject {
     omni_exit(0);
   }
   
-  public function startController(Shell $shell, Job $job) {
+  public function isValid() {
+    return count($this->inboundEndpoints) > 0 && count($this->outboundEndpoints) > 0;
+  }
+  
+  public function startController(Shell $shell, Job $job, $report_untracked = false) {
     if ($this->controllerPid !== null) {
       throw new Exception('Pipe controller has already been started!');
     }
@@ -287,7 +318,7 @@ final class Pipe extends Phobject {
     if ($pid === 0) {
       omni_trace("i am the child pipe controller");
       
-      $shell->putProcessInProcessGroupIfInteractive($job, $pid);
+      $shell->prepareForkedProcess($job);
       
       omni_trace("enabling ticks");
       
@@ -295,7 +326,8 @@ final class Pipe extends Phobject {
       
       omni_trace("registering SIGTERM");
       
-      pcntl_signal(SIGTERM, array($this, 'controllerReceivedSIGTERM'));
+      pcntl_signal(SIGTERM, SIG_DFL);
+      //pcntl_signal(SIGTERM, array($this, 'controllerReceivedSIGTERM'));
       
       omni_trace("pipe ".posix_getpid().": ".$this->getName());
       
@@ -360,7 +392,12 @@ final class Pipe extends Phobject {
       
       // Return the new pipe process inside the process
       // wrapper.
-      return new ProcessIDWrapper($pid, 'pipe', $this->getName());
+      $process = new ProcessIDWrapper($pid, 'pipe', $this->getName());
+      if ($report_untracked) {
+        // TODO: Use a better flag here?
+        $process->setCompleted(true);
+      }
+      return $process;
     } else {
       // Unable to start controller.
       throw new Exception('Unable to start pipe controller!');
@@ -372,9 +409,32 @@ final class Pipe extends Phobject {
       return;
     }
   
-    omni_trace("killing controller with pid ".$this->controllerPid);
+    omni_trace("terminating controller with pid ".$this->controllerPid);
     
     posix_kill($this->controllerPid, SIGTERM);
+    
+    omni_trace("waiting for controller with pid ".$this->controllerPid." to finish up...");
+    
+    $status = '';
+    $pid = pcntl_waitpid($this->controllerPid, $status, 0);
+    if ($pid === $this->controllerPid) {
+      omni_trace("got status $status after waitpid returned from controller");
+    } else {
+      omni_trace("got status $status after waitpid returned FROM UNKNOWN PROCESS");
+    } 
+    
+    if (pcntl_wifstopped($status)) {
+      omni_trace("controller process is STOPPED");
+    }
+    if (pcntl_wifexited($status)) {
+      omni_trace("controller process is EXITED");
+    }
+    if (pcntl_wifsignaled($status)) {
+      omni_trace("controller process is SIGNALED");
+      omni_trace("controller process got signal ".pcntl_wtermsig($status));
+    }
+    
+    omni_trace("assuming controller has exited....");
   }
   
 }

@@ -29,6 +29,10 @@ $result = $args->parsePartial(
       'name'     => 'simulate-interactive',
       'help'     => 'Simulate commands being typed at the interactive prompt.',
     ),
+    array(
+      'name'     => 'raw',
+      'help'     => 'Use raw mode when shell is interactive.',
+    ),
 ));
 
 if ($args->getArg('trace')) {
@@ -57,6 +61,9 @@ if (posix_isatty(Shell::STDIN_FILENO) && count($command) === 0) {
 
   // Run as an interactive shell.
   $tty = new InteractiveTTYEditline();
+  if ($args->getArg('raw')) {
+    $tty->setRaw(true);
+  }
   if ($args->getArg('simulate-interactive')) {
     $tty->simulate();
   } else {

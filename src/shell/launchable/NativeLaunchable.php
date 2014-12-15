@@ -51,9 +51,9 @@ final class NativeLaunchable
       " with stdout pipe ".$stdout->getName().
       " with stderr pipe ".$stderr->getName());
     omni_trace("The FDs for ".$this->executable.
-      " are stdin: ".$stdin->getName().
-      " , stdout: ".$stdout->getName().
-      " , stderr: ".$stderr->getName());
+      " are stdin: ".$stdin_endpoint->getReadFD().
+      " , stdout: ".$stdout_endpoint->getWriteFD().
+      " , stderr: ".$stderr_endpoint->getWriteFD());
     
     $pid = pcntl_fork();
     if ($pid === 0) {

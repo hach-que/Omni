@@ -10,20 +10,16 @@ final class BuiltinLaunchable
   public function __construct(Builtin $builtin, $arguments) {
     $this->builtin = $builtin;
     $this->arguments = $arguments;
+    array_unshift($this->arguments, $this->builtin->getName());
   }
   
   public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
-    // TODO Migrate to two stage prepare / launch.
-    return array();
+    return $this->builtin->prepare($shell, $job, $this->arguments, $stdin, $stdout, $stderr);
   }
   
   public function launch(Shell $shell, Job $job, array $prepare_data) {
-    // TODO Migrate to two stage prepare / launch.
-    return array();
-    
-    $argv = $this->arguments;
-    array_unshift($argv, $this->builtin->getName());
-    $this->builtin->run($shell, $job, $argv, $stdin, $stdout, $stderr);
+    $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
+    return null;
   }
   
  }

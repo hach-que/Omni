@@ -6,6 +6,11 @@ final class InteractiveTTYEditline extends Phobject {
   private $parser;
   private $maxSuggestions = 0;
   private $simulate;
+  private $raw = false;
+  
+  public function setRaw($raw) {
+    $this->raw = $raw;
+  }
   
   public function simulate() {
     $this->shell = new Shell();
@@ -18,44 +23,66 @@ final class InteractiveTTYEditline extends Phobject {
     $this->handleCommand('echo "hello" | grep "t"');
     $this->handleCommand('echo "hello" | grep "ll"');
     $this->handleCommand('sleep 1');
+    $this->handleCommand('job');
+    $this->handleCommand('job');
+    $this->handleCommand('echo "hello" | grep "ll"');
     
-    $this->finalize();
+    $this->shell->finalize();
   }
 
   public function run() {
     $this->shell = new Shell();
     $this->shell->initialize();
     
-    editline_begin();
-    
-    $this->renderSuggestions('');
-    
-    while (true) {
-      $result = editline_read();
+    if (!$this->raw) {
+      editline_begin();
       
-      switch ($result['status']) {
-        case 'typing':
-        case 'cancelled':
-          $this->renderSuggestions($result['input']);
-          break;
-        case 'complete':
-          $this->handleCommand($result['input']);
-          $this->renderSuggestions('');
-          break;
+      $this->renderSuggestions('');
+    }
+    
+    while (!$this->shell->wantsToExit()) {
+      if ($this->raw) {
+        echo "#RAW> ";
+        $fd = 0;
+        fd_set_blocking($fd, true);
+        $buffer = '';
+        $char = null;
+        while ($char !== "\n") {
+          $char = fd_read($fd, 1);
+          if ($char === null) {
+            // Pipe closed.
+            throw new Exception('stdin is closed! :(');
+          }
+          if ($char === false) {
+            throw new Exception('read error on stdin: '.idx(fd_get_error(), 'error'));
+          }
+          if ($char !== "\n") {
+            $buffer .= $char;
+          }
+        }
+        $result = $buffer;
+        
+        $this->handleCommand($result);
+      } else {
+        $result = editline_read();
+      
+        switch ($result['status']) {
+          case 'typing':
+          case 'cancelled':
+            $this->renderSuggestions($result['input']);
+            break;
+          case 'complete':
+            $this->handleCommand($result['input']);
+            
+            if (!$this->shell->wantsToExit()) {
+              $this->renderSuggestions('');
+            }
+            break;
+        }
       }
     }
     
-    $this->finalize();
-  }
-  
-  public function finalize() {
-    omni_trace("waiting for remaining jobs");
-    
-    foreach ($this->shell->getJobs() as $job) {
-      $this->shell->waitForJob($job);
-    }
-    
-    omni_trace("remaining jobs completed; ready to quit");
+    $this->shell->finalize();
   }
   
   public function renderSuggestions($input) {
@@ -99,7 +126,7 @@ final class InteractiveTTYEditline extends Phobject {
   public function handleCommand($input) {
     omni_trace("clear suggestions");
     
-    if (!$this->simulate) {
+    if (!$this->raw && !$this->simulate) {
       $this->clearSuggestions();
     }
     
@@ -107,13 +134,15 @@ final class InteractiveTTYEditline extends Phobject {
     
     $this->shell->execute($input);
     
-    omni_trace("begin editline again");
-    
-    if (!$this->simulate) {
-      editline_begin();
+    if (!$this->raw && !$this->shell->wantsToExit()) {
+      omni_trace("begin editline again");
+      
+      if (!$this->simulate) {
+        editline_begin();
+      }
+      
+      omni_trace("ready for editline input");
     }
-    
-    omni_trace("ready for editline input");
   }
 
   public function getPrompt() {

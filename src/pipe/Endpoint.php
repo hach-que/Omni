@@ -11,6 +11,7 @@ final class Endpoint extends Phobject {
   const FORMAT_BYTE_STREAM = 'byte-stream';
   const FORMAT_NEWLINE_SEPARATED = 'newline-separated';
   const FORMAT_NULL_SEPARATED = 'null-separated';
+  const FORMAT_USER_FRIENDLY = 'user-friendly';
 
   private $nativePipe;
   private $nativePipePending;
@@ -18,6 +19,7 @@ final class Endpoint extends Phobject {
   private $readFormat = self::FORMAT_PHP_SERIALIZATION;
   private $name = null;
   private $closable = true;
+  private $userFriendlyFormatter = null;
 
   public function __construct($pipe = null) {
     if ($pipe === null) {
@@ -91,6 +93,15 @@ final class Endpoint extends Phobject {
     }
   }
   
+  private function convertToStringIfNeeded($object) {
+    try {
+      assert_stringlike($object);
+      return (string)$object;
+    } catch (Exception $e) {
+      return print_r($object, true);
+    }
+  }
+  
   public function write($object) {
     $data = null;
     switch ($this->writeFormat) {
@@ -101,13 +112,19 @@ final class Endpoint extends Phobject {
         $data = $this->lengthPrefix(json_encode($object));
         break;
       case self::FORMAT_BYTE_STREAM:
-        $data = (string)$object;
+        $data = $this->convertToStringIfNeeded($object);
         break;
       case self::FORMAT_NEWLINE_SEPARATED:
-        $data = ((string)$object)."\n";
+        $data = trim($this->convertToStringIfNeeded($object), "\n")."\n";
         break;
       case self::FORMAT_NULL_SEPARATED:
-        $data = ((string)$object)."\0";
+        $data = trim($this->convertToStringIfNeeded($object), "\0")."\0";
+        break;
+      case self::FORMAT_USER_FRIENDLY:
+        if ($this->userFriendlyFormatter === null) {
+          $this->userFriendlyFormatter = new UserFriendlyFormatter();
+        }
+        $data = $this->userFriendlyFormatter->get($object);
         break;
     }
     
