@@ -135,7 +135,7 @@ final class Endpoint extends Phobject {
       $result = fd_write($this->getWriteFD(), $buffer);
       if ($result === false) {
         // Error.
-        throw new Exception('Write error');
+        throw new Exception('error: write: '.idx(fd_get_error(), 'error'));
       } else if ($result === true) {
         // Non-blocking; not ready for write.
         usleep(5000);
@@ -180,13 +180,10 @@ final class Endpoint extends Phobject {
         return json_decode($data);
       case self::FORMAT_BYTE_STREAM:
         fd_set_blocking($fd, false);
-        $data = fd_read($fd, 4096);
+        $data = $this->readFromFD($fd, 4096);
         if ($data === true) {
           // No data available yet (EAGAIN).
           return '';
-        } else if ($data === false) {
-          // Other error.
-          throw new Exception('Read error');
         } else if ($data === null) {
           // Pipe closed.
           throw new NativePipeClosedException();
@@ -198,7 +195,7 @@ final class Endpoint extends Phobject {
         $buffer = '';
         $char = null;
         while ($char !== "\n") {
-          $char = fd_read($fd, 1);
+          $char = $this->readFromFD($fd, 1);
           if ($char === null) {
             // Pipe closed.
             throw new NativePipeClosedException();
@@ -213,7 +210,7 @@ final class Endpoint extends Phobject {
         $buffer = '';
         $char = null;
         while ($char !== "\0") {
-          $char = fd_read($fd, 1);
+          $char = $this->readFromFD($fd, 1);
           if ($char === null) {
             // Pipe closed.
             throw new NativePipeClosedException();
@@ -227,9 +224,22 @@ final class Endpoint extends Phobject {
         throw new Exception('Unknown read format '.$this->readFormat);
     }
   }
+  
+  private function readFromFD($fd, $length) {
+    $result = fd_read($fd, $length);
+    if ($result === false) {
+      $error = fd_get_error();
+      if ($error['errno'] === 5 /* EIO */ && $this->getReadFD() === 0) {
+        throw new EIOWhileReadingStdinException();
+      } else {
+        throw new Exception('error: read: '.$error['error']);
+      }
+    }
+    return $result;
+  }
 
   private function readLengthPrefixed($fd) {
-    $length_bytes = fd_read($fd, 4);
+    $length_bytes = $this->readFromFD($fd, 4);
     if ($length_bytes === null) {
       throw new NativePipeClosedException();
     }
@@ -243,7 +253,7 @@ final class Endpoint extends Phobject {
       ($length_byte_2 << 16) |
       ($length_byte_3 << 8) |
       $length_byte_4;
-    $data = fd_read($fd, $length);
+    $data = $this->readFromFD($fd, $length);
     if ($data === null) {
       throw new NativePipeClosedException();
     }

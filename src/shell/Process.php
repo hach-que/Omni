@@ -61,7 +61,7 @@ final class Process
     $resolved_executable = Filesystem::resolveBinary($executable);
     $is_native = false;
     
-    $this->description = implode(' ', $this->arguments);
+    $this->description = trim($resolved_executable.' '.implode(' ', $this->arguments));
     
     if ($shell->isKnownBuiltin($executable)) {
       $builtin = $shell->lookupBuiltin($executable);

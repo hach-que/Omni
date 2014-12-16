@@ -6,6 +6,7 @@ final class PipelineVisitor extends Visitor {
     omni_trace("constructing job");
     
     $job = new Job();
+    $job->setCommand($data['original']);
     foreach ($data['children'] as $child) {
       $job->addStage($this->visitChild($shell, $child));
     }

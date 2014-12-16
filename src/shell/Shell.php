@@ -65,6 +65,15 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   }
   
   
+/* -(  Background SIGCHLD  )------------------------------------------------- */
+
+  
+  public function receivedChildSignal() {
+    omni_trace("got SIGCHLD");
+    $this->waitForAnyJob();
+  }
+  
+  
 /* -(  Shell Shutdown  )----------------------------------------------------- */
   
   
@@ -82,23 +91,32 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $stderr_endpoint = $this->createInternalStderrEndpoint();
     
     $waiting = true;
+    $last_count = -1;
     while ($waiting) {
+      if ($last_count >= 0) {
+        usleep(5000);
+      }
+
+      omni_trace("checking jobs");
+      
       $waiting = false;
       $wait_count = 0;
       foreach ($this->getJobs() as $job) {
         if (!$job->isCompleted()) {
           if (!$job->isStopped()) {
+            omni_trace("job ".$job->getProcessGroupIDOrNull()." not stopped and not completed");
             $waiting = true;
             $wait_count++;
           }
         }
       }
       
-      if ($waiting) {
+      if ($waiting && $wait_count !== $last_count) {
         $stderr_endpoint->write('Waiting for '.$wait_count.' background jobs to complete...'."\n");
+        $last_count = $wait_count;
       }
       
-      $this->waitForAnyJob();
+      $this->doJobNotification();
     }
     
     $stderr_endpoint->closeWrite();
@@ -127,7 +145,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
 /* -(  Launching Processes  )------------------------------------------------ */
   
   
-  public function prepareForkedProcess(Job $job) {
+  public function prepareForkedProcess(Job $job, $dont_reset_sigttin = false) {
     if ($this->isInteractive) {
       $this->putProcessInProcessGroupIfInteractiveFromChild($job);
       
@@ -137,7 +155,9 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       pcntl_signal(SIGINT, SIG_DFL);
       pcntl_signal(SIGQUIT, SIG_DFL);
       pcntl_signal(SIGTSTP, SIG_DFL);
-      pcntl_signal(SIGTTIN, SIG_DFL);
+      if (!$dont_reset_sigttin) {
+        pcntl_signal(SIGTTIN, SIG_DFL);
+      }
       pcntl_signal(SIGTTOU, SIG_DFL);
       pcntl_signal(SIGCHLD, SIG_DFL);
     }
@@ -234,6 +254,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   }
   
   public function putJobInBackground(Job $job, $continue = false) {
+    $job->setForeground(false);
+  
     // Send the job a continue signal, if necessary.
     if ($continue) {
       if (!posix_kill(-$job->getProcessGroupIDOrAssert(), SIGCONT)) {
@@ -251,6 +273,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
             $process->setProcessStatus($status);
             if (pcntl_wifstopped($status)) {
               $process->setStopped(true);
+              omni_trace(
+                $pid." was stopped.\n");
             } else {
               $process->setCompleted(true);
               if (pcntl_wifsignaled($status)) {
@@ -282,10 +306,11 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       return false;
     } else if ($pid === 0 || pcntl_get_last_error() == 10 /* ECHILD */) {
       // No processes ready to report.
+      omni_trace("no processes ready to report");
       return true;
     } else {
       // Other weird errors.
-      omni_trace("error: waitpid: ".pcntl_strerror(pcntl_get_last_error())."\n");
+      omni_trace("error: waitpid: ".pcntl_strerror(pcntl_get_last_error()));
       return true;
     }
   }
@@ -313,19 +338,9 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $pid = null;
     
     do {
+      omni_trace("waiting on any child pid");
       $pid = pcntl_waitpid(-1, $status, WUNTRACED);
-      omni_trace("got signal for $pid: $status\n");
-      
-      foreach ($job->getProcesses() as $process) {
-        omni_trace(print_r(array(
-          'pid' => $process->getProcessID(),
-          'type' => $process->getProcessType(),
-          'description' => $process->getProcessDescription(),
-          'status' => $process->getProcessStatus(),
-          'stopped?' => $process->isStopped(),
-          'completed?' => $process->isCompleted(),
-        ), true));
-      }
+      omni_trace("got signal for $pid: $status");
     } while (
       !$this->markProcessStatus($pid, $status) &&
       !$job->isStopped() &&
@@ -333,23 +348,30 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   }
   
   public function formatJobInfo(Job $job, $status) {
-    omni_trace($job->getProcessGroupIDOrAssert()." (".$status."): ".$job->getCommand()."\n");
+    $endpoint = $this->createInternalStderrEndpoint();
+    $endpoint->write($job->getProcessGroupIDOrAssert()." (".$status."): ".$job->getCommand()."\n");
+    $endpoint->closeWrite();
   }
   
   public function doJobNotification() {
     $this->updateStatus();
+    
+    omni_trace("updated all processes from waitpid");
     
     foreach ($this->jobs as $key => $job) {
       // If all processes have completed, tell the user the
       // job has completed and delete it from the list of
       // active jobs.
       if ($job->isCompleted()) {
-        $this->formatJobInfo($job, "completed");
+        if (!$job->isForeground()) {
+          // Only display "completed" for background jobs.
+          $this->formatJobInfo($job, "completed");
+        }
         unset($this->jobs[$key]);
       }
       
       // Notify the user about stopped jobs.
-      else if ($job->isStopped() && !$job->notified) {
+      else if ($job->isStopped() && !$job->hasUserBeenNotifiedOfNewStatus()) {
         $this->formatJobInfo($job, "stopped");
         $job->setUserBeenNotifiedOfNewStatus(true);
       }
@@ -403,6 +425,12 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       id(new RootVisitor())->visit($this, $results);
       
       omni_trace("execute complete");
+      
+      omni_trace("before doJobNotification");
+      
+      $this->doJobNotification();
+      
+      omni_trace("after doJobNotification");
     }
   }
   

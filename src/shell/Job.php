@@ -9,6 +9,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   private $terminalModes;
   private $userHasBeenNotifiedOfNewStatus = false;
   private $killPipesOnJobCompletion = array();
+  private $command;
   
   public function hasUserBeenNotifiedOfNewStatus() {
     return $this->userHasBeenNotifiedOfNewStatus;
@@ -20,7 +21,11 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   }
   
   public function getCommand() {
-    return 'command information not available';
+    return $this->command;
+  }
+  
+  public function setCommand($command) {
+    $this->command = $command;
   }
   
   public function setForeground($foreground) {
@@ -59,7 +64,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   
   public function isStopped() {
     foreach ($this->processes as $process) {
-      if (!$process->isStopped() || !$process->isCompleted()) {
+      if (!$process->isStopped() && !$process->isCompleted()) {
         return false;
       }
     }

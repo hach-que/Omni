@@ -1,5 +1,7 @@
 #!/usr/bin/env php
 <?php
+      
+declare(ticks=1);
 
 require_once dirname(__FILE__).'/__sanity_check__.php';
 

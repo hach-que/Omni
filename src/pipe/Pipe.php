@@ -216,6 +216,17 @@ final class Pipe extends Phobject {
         
         try {
           $object = $endpoint->read();
+        } catch (EIOWhileReadingStdinException $ex) {
+          // We got EIO while specifically reading from FD 0.  This
+          // indicates that this controller is attempting to read from
+          // standard input, but is currently in a background job.
+          // In this scenario, select() still reports there's data
+          // available on stdin, but we don't have permission to actually
+          // read the data.  There's nothing we can do unless the user
+          // brings this job back into the foreground, so we just sleep
+          // a little while and then continue.
+          usleep(5000);
+          continue;
         } catch (NativePipeClosedException $ex) {
           // Unable to read any more data from this stream.
           $endpoint->close();
@@ -276,10 +287,9 @@ final class Pipe extends Phobject {
     return true;
   }
   
+  /*
   public function controllerReceivedSIGTERM() {
     omni_trace("controller got SIGTERM!");
-    
-    pcntl_signal(SIGTERM, SIG_DFL);
   
     // Close off all endpoints.
     foreach ($this->inboundEndpoints as $endpoint) {
@@ -292,6 +302,7 @@ final class Pipe extends Phobject {
     // Then exit.
     omni_exit(0);
   }
+  */
   
   public function isValid() {
     return count($this->inboundEndpoints) > 0 && count($this->outboundEndpoints) > 0;
@@ -318,15 +329,15 @@ final class Pipe extends Phobject {
     if ($pid === 0) {
       omni_trace("i am the child pipe controller");
       
-      $shell->prepareForkedProcess($job);
+      $shell->prepareForkedProcess($job, true);
       
-      omni_trace("enabling ticks");
+      omni_trace("setting SIGTTIN to SIG_IGN");
       
-      declare(ticks=1);
+      pcntl_signal(SIGTTIN, SIG_IGN);
       
-      omni_trace("registering SIGTERM");
+      //omni_trace("registering SIGTERM");
       
-      pcntl_signal(SIGTERM, SIG_DFL);
+      //pcntl_signal(SIGTERM, SIG_DFL);
       //pcntl_signal(SIGTERM, array($this, 'controllerReceivedSIGTERM'));
       
       omni_trace("pipe ".posix_getpid().": ".$this->getName());

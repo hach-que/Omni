@@ -35,7 +35,7 @@ final class InteractiveTTYEditline extends Phobject {
     $this->shell->initialize();
     
     if (!$this->raw) {
-      editline_begin();
+      editline_begin($this->getPrompt());
       
       $this->renderSuggestions('');
     }
@@ -64,6 +64,7 @@ final class InteractiveTTYEditline extends Phobject {
         
         $this->handleCommand($result);
       } else {
+        //editline_set_prompt($this->getPrompt());
         $result = editline_read();
       
         switch ($result['status']) {
@@ -138,7 +139,8 @@ final class InteractiveTTYEditline extends Phobject {
       omni_trace("begin editline again");
       
       if (!$this->simulate) {
-        editline_begin();
+        editline_end();
+        editline_begin($this->getPrompt());
       }
       
       omni_trace("ready for editline input");
