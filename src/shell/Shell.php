@@ -206,6 +206,15 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   }
   
   public function scheduleJob(Job $job) {
+    if (!$this->isInteractive) {
+      if ($job->getProcessGroupIDOrNull() === null) {
+        // TODO Even with builtins we should have a stdout pipe
+        // controller running, so find out why this returns
+        // null here even though we should be able to wait on
+        // the pipe.
+      }
+    }
+    
     $this->jobs[$job->getProcessGroupIDOrAssert()] = $job;
   
     if (!$this->isInteractive) {

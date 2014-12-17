@@ -183,9 +183,7 @@ final class ChangeDirectoryBuiltin extends Builtin {
       throw new Exception("Unable to change directory to $current_path");
     }
     
-    // TODO Return a structured directory object representing the directory
-    // we have changed to.
-    
+    $stdout->write(new StructuredFile(getcwd()));
     $stdout->closeWrite();
   }
 

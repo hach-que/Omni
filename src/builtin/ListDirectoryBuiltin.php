@@ -162,6 +162,11 @@ final class ListDirectoryBuiltin extends Builtin {
         'help' => 
           'Sort alphabetically by entry extension.'
       ),
+      array(
+        'name' => 'path',
+        'wildcard' => true,
+        'help' => 'The paths to list.',
+      )
     );
     
     $is_byte_stream_stdout = false;
@@ -419,13 +424,22 @@ final class ListDirectoryBuiltin extends Builtin {
     
     $stdout = idx($prepare_data, 'stdout');
     
-    // Implemented according to the POSIX manual for the "cd" command.
-    
     $parser = new PhutilArgumentParser($arguments);
     $parser->parseFull($this->getArguments($shell, $job, $prepare_data));
     
-    // TODO Return a structured directory object representing the directory
-    // we have changed to.
+    $paths = $parser->getArg('path');
+    if (count($paths) === 0) {
+      $paths[] = '.';
+    }
+    
+    foreach ($paths as $path) {
+      if (Filesystem::pathExists($path)) {
+        $entries = Filesystem::listDirectory($path);
+        foreach ($entries as $entry) {
+          $stdout->write(new StructuredFile(rtrim($path, '/').'/'.$entry));
+        }
+      }
+    }
     
     $stdout->closeWrite();
   }

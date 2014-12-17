@@ -70,17 +70,20 @@ final class UserFriendlyFormatter extends Phobject {
     return true;
   }
   
-  private function writeObject($object) {
+  private function getObject($object) {
     $reflection = new ReflectionClass($object);
     $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
     $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
+    $methods = mpull($methods, null, 'getName');
     
     $array = array();
     foreach ($properties as $property) {
-      $array[$property->getName()] = $property->getValue();
+      $array[$property->getName()] = array(
+        'writable' => false,
+        'value' => $property->getValue(),
+      );
     }
-    foreach ($methods as $method) {
-      $name = $method->getName();
+    foreach ($methods as $name => $method) {
       if (preg_match('/^get[A-Z]/', $name)) {
         if ($method->isStatic()) {
           continue;
@@ -89,14 +92,61 @@ final class UserFriendlyFormatter extends Phobject {
           continue;
         }
         $field_name = substr($name, 3);
-        $array[$field_name] = $method->invoke($object);
+        $field_name = strtolower($field_name[0]).substr($field_name, 1);
+        $array[$field_name] = array(
+          'writable' => idx($methods, 'set'.$field_name),
+          'value' => $method->invoke($object),
+        );
+      } else if (preg_match('/^is[A-Z]/', $name)) {
+        if ($method->isStatic()) {
+          continue;
+        }
+        if ($method->getNumberOfRequiredParameters() !== 0) {
+          continue;
+        }
+        $field_name = 'is'.substr($name, 2);
+        $array[$field_name] = array(
+          'writable' => idx($methods, 'set'.substr($name, 2)),
+          'value' => $method->invoke($object),
+        );
+      } else if (preg_match('/^set[A-Z]/', $name)) {
+        // Represented as a property.
+        continue;
+      } else if (preg_match('/^((__[a-z]+)|current|key|next|rewind|valid)$/', $name)) {
+        // Ignore these methods.
+      } else {
+        $field_name = $name.'()';
+        $parameter_strs = array();
+        foreach ($method->getParameters() as $parameter) {
+          $parameter_str = '$'.$parameter->getName();
+          if ($parameter->isOptional()) {
+            $parameter_str .= ' = ...';
+          }
+          if ($parameter->isPassedByReference()) {
+            $parameter_str = '&'.$parameter_str;
+          }
+          if ($parameter->isArray()) {
+            $parameter_str = 'array '.$parameter_str;
+          }
+          if ($parameter->isVariadic()) {
+            $parameter_str = '...';
+          }
+          if ($parameter->getClass()) {
+            $parameter_str = $parameter->getClass()->getName().' '.$parameter_str;
+          }
+          $parameter_strs[] = $parameter_str;
+        }
+        $array[$field_name] = array(
+          'writable' => false,
+          'value' => '('.implode(', ', $parameter_strs).')',
+        );
       }
     }
     
-    return $this->getFields($array);
+    return $this->getFields($array, true);
   }
   
-  private function getFields($fields) {
+  private function getFields($fields, $values_have_writable_flag = false) {
     $max_key_length = 0;
     foreach ($fields as $key => $value) {
       $key_string = (string)$key;
@@ -113,7 +163,15 @@ final class UserFriendlyFormatter extends Phobject {
       $key_string = (string)$key;
       $key_string = str_pad($key_string, $max_key_length, ' ');
       
-      $content .= $key_string.': '.$value."\n";
+      if ($values_have_writable_flag) {
+        $w = '   ';
+        if ($value['writable']) {
+          $w = ' w ';
+        }
+        $content .= $key_string.$w.': '.$this->get($value['value'])."\n";
+      } else {
+        $content .= $key_string.': '.$this->get($value)."\n";
+      }
     }
   
     $content .= "\n";
