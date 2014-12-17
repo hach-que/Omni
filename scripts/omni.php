@@ -50,6 +50,7 @@ if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));
   print_r($result);
   if ($result === false) {
+    echo omnilang_get_error()."\n";
     omni_exit(1);
   } else {
     omni_exit(0);
