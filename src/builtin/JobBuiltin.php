@@ -19,6 +19,21 @@ final class JobBuiltin extends Builtin {
     );
   }
   
+  public function getArguments(
+    Shell $shell,
+    Job $job,
+    array $prepare_data) {
+    
+    return array(
+      array(
+        'name' => 'job',
+        'param' => 'job',
+        'short' => 'j',
+        'help' => 'If specified, operates on a specific job.'
+      ),
+    );
+  }
+  
   public function run(
     Shell $shell,
     Job $job, 
@@ -28,14 +43,7 @@ final class JobBuiltin extends Builtin {
     $stdout = idx($prepare_data, 'stdout');
     
     $parser = new PhutilArgumentParser($arguments);
-    $parser->parseFull(array(
-      array(
-        'name' => 'job',
-        'param' => 'job',
-        'short' => 'j',
-        'help' => 'If specified, operates on a specific job.'
-      ),
-    ));
+    $parser->parseFull($this->getArguments($shell, $job, $prepare_data));
     
     if ($parser->getArg('job')) {
       // Operate on a specific job.

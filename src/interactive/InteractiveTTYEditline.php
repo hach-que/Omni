@@ -133,7 +133,11 @@ final class InteractiveTTYEditline extends Phobject {
     
     omni_trace("execute input");
     
-    $this->shell->execute($input);
+    try {
+      $this->shell->execute($input);
+    } catch (Exception $ex) {
+      phlog($ex);
+    }
     
     if (!$this->raw && !$this->shell->wantsToExit()) {
       omni_trace("begin editline again");
@@ -151,8 +155,14 @@ final class InteractiveTTYEditline extends Phobject {
     $user = get_current_user();
     $host = gethostname();
     $cwd = getcwd();
+    $home = getenv('HOME');
+    if (strlen($cwd) >= strlen($home)) {
+      if (substr($cwd, 0, strlen($home)) === $home) {
+        $cwd = '~'.substr($cwd, strlen($home));
+      }
+    }
     
-    return $user."@".$host.":".$cwd."> ";
+    return '[omni] '.$user.'@'.$host.':'.$cwd.'> ';
   }
   
   private function getSuggestionsForInput($input) {

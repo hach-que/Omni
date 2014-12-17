@@ -18,7 +18,20 @@ final class BuiltinLaunchable
   }
   
   public function launch(Shell $shell, Job $job, array $prepare_data) {
-    $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
+    try {
+      $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
+    } catch (Exception $ex) {
+      phlog($ex);
+      
+      // Be on the safe side and close any pipes that were specified in
+      // $prepare_data.
+      foreach ($prepare_data as $value) {
+        if ($value instanceof Endpoint) {
+          $value->close();
+        }
+      }
+    }
+    
     return null;
   }
   

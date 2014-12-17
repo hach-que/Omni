@@ -85,6 +85,14 @@ final class Endpoint extends Phobject {
     return $this;
   }
   
+  public function getWriteFormat($format) {
+    return $this->writeFormat;
+  }
+  
+  public function getReadFormat($format) {
+    return $this->readFormat;
+  }
+  
   public function instantiatePipe() {
     if ($this->nativePipePending) {
       $this->nativePipe = fd_pipe();

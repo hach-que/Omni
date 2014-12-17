@@ -16,6 +16,14 @@ final class ExitBuiltin extends Builtin {
     
     return array();
   }
+    
+  public function getArguments(
+    Shell $shell,
+    Job $job,
+    array $prepare_data) {
+    
+    return null;
+  }
 
   public function run(
     Shell $shell,
