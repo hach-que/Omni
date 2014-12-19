@@ -1,10 +1,5 @@
 <?php
 
-/**
- * An abstraction on top of the native system pipes, which allows multiple inputs
- * and outputs, and permits complex objects to be transmitted over the stream
- * (via serialization).
- */
 final class Pipe extends Phobject {
 
   const DIST_METHOD_ROUND_ROBIN = 'round-robin';
@@ -15,53 +10,79 @@ final class Pipe extends Phobject {
   private $inboundEndpoints = array();
   private $outboundEndpoints = array();
   private $controllerPid = null;
+  private $controllerControlPipe = null;
+  private $controllerDataPipe = null;
   private $roundRobinCounter = 0;
   private $defaultInboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   private $defaultOutboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
+  private $hasPreviouslyHadInboundEndpoints = false;
+  private $objectsPendingConnectionOfOutboundEndpoints = array();
+  private $shell = null;
+  private $job = null;
   
-  public function getName() {
-    $inbound_names = mpull($this->inboundEndpoints, 'getName');
-    $outbound_names = mpull($this->outboundEndpoints, 'getName');
-    $inbound_implode = implode(',', $inbound_names);
-    $outbound_implode = implode(',', $outbound_names);
-    
-    return "[in:(".$inbound_implode.");out:(".$outbound_implode.")]";
+  /**
+   * When pipes are being used as part of the shell, we need to
+   * call prepareForkedProcess on the shell to restore process
+   * defaults.
+   */
+  public function setShellAndJob(Shell $shell, Job $job) {
+    $this->shell = $shell;
+    $this->job = $job;
+    return $this;
   }
   
   public function setTypeConversion($target_type) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
+    $this->startControllerIfNotRunning();
+    
+    if ($this->controllerPid === posix_getpid()) {
+      $this->targetType = $target_type;
+    } else {
+      $this->dispatchControlSelfCallEvent(__FUNCTION__, $target_type);
     }
-  
-    $this->targetType = $target_type;
+    
     return $this;
   }
   
   public function setDistributionMethod($dist_method) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
+    $this->startControllerIfNotRunning();
+    
+    if ($this->controllerPid === posix_getpid()) {
+      $this->distributionMethod = $dist_method;
+    } else {
+      $this->dispatchControlSelfCallEvent(__FUNCTION__, $dist_method);
     }
-  
-    $this->distributionMethod = $dist_method;
+    
     return $this;
   }
   
   public function setDefaultInboundFormat($format) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
+    $this->startControllerIfNotRunning();
+    
+    if ($this->controllerPid === posix_getpid()) {
+      $this->defaultInboundFormat = $format;
+    } else {
+      $this->dispatchControlSelfCallEvent(__FUNCTION__, $format);
     }
-  
-    $this->defaultInboundFormat = $format;
+    
     return $this;
   }
   
   public function setDefaultOutboundFormat($format) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
+    $this->startControllerIfNotRunning();
+    
+    if ($this->controllerPid === posix_getpid()) {
+      $this->defaultOutboundFormat = $format;
+    } else {
+      $this->dispatchControlSelfCallEvent(__FUNCTION__, $format);
     }
-  
-    $this->defaultOutboundFormat = $format;
+    
     return $this;
+  }
+  
+  public function getControllerProcess() {
+    $this->startControllerIfNotRunning();
+    
+    return new ProcessIDWrapper($this->controllerPid, 'pipe', $this->getName());
   }
   
   /**
@@ -70,19 +91,39 @@ final class Pipe extends Phobject {
    * pipe.
    */
   public function createInboundEndpoint($format = null, $name = null) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
-    }
-  
+    $this->startControllerIfNotRunning();
+    
     if ($format === null) {
       $format = $this->defaultInboundFormat;
     }
     
+    // Create the endpoint and instantiate the native pipe
+    // underneath.
     $endpoint = id(new Endpoint())
+      ->setOwnerPipe($this)
+      ->setOwnerType('inbound')
       ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format);
-    $this->inboundEndpoints[] = $endpoint;
+    $endpoint->instantiatePipe();
+    $idx = array_push($this->inboundEndpoints, $endpoint) - 1;
+    $endpoint->setOwnerIndex($idx);
+    
+    // Send control event to create inbound endpoint.
+    $this->controllerDataPipe->write(array(
+      'type' => 'create-endpoint',
+      'endpoint-type' => 'inbound',
+      'name' => $name,
+      'read-format' => $format,
+      'write-format' => $format,
+      'index' => $idx,
+      'closable' => true,
+    ));
+    FileDescriptorManager::sendFD(
+      $this->controllerControlPipe['write'],
+      $endpoint->getReadFD());
+    $endpoint->closeRead();
+      
     return $endpoint;
   }
   
@@ -92,112 +133,388 @@ final class Pipe extends Phobject {
    * pipe.
    */
   public function createOutboundEndpoint($format = null, $name = null) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
-    }
-  
+    $this->startControllerIfNotRunning();
+    
     if ($format === null) {
       $format = $this->defaultOutboundFormat;
     }
     
+    // Create the endpoint and instantiate the native pipe
+    // underneath.
     $endpoint = id(new Endpoint())
+      ->setOwnerPipe($this)
+      ->setOwnerType('outbound')
       ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format);
-    $this->outboundEndpoints[] = $endpoint;
+    $endpoint->instantiatePipe();
+    $idx = array_push($this->outboundEndpoints, $endpoint) - 1;
+    $endpoint->setOwnerIndex($idx);
+    
+    // Send control event to create inbound endpoint.
+    $this->controllerDataPipe->write(array(
+      'type' => 'create-endpoint',
+      'endpoint-type' => 'outbound',
+      'name' => $name,
+      'read-format' => $format,
+      'write-format' => $format,
+      'index' => $idx,
+      'closable' => true,
+    ));
+    FileDescriptorManager::sendFD(
+      $this->controllerControlPipe['write'],
+      $endpoint->getWriteFD());
+    $endpoint->closeWrite();
+      
     return $endpoint;
   }
   
   /**
    * Attaches FD 0 (stdin) as an inbound endpoint to this pipe.
    */
-  public function attachStdinEndpoint($format = null) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
-    }
-  
+  public function attachStdinEndpoint($format = null, $name = null) {
+    $this->startControllerIfNotRunning();
+    
     if ($format === null) {
       $format = $this->defaultInboundFormat;
     }
     
+    // Create the endpoint and instantiate the native pipe
+    // underneath.
     $endpoint = id(new Endpoint(array('read' => Shell::STDIN_FILENO, 'write' => null)))
-      ->setName("stdin")
+      ->setOwnerPipe($this)
+      ->setOwnerType('inbound')
+      ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format)
       ->setClosable(false);
-    $this->inboundEndpoints[] = $endpoint;
+    $endpoint->instantiatePipe();
+    $idx = array_push($this->inboundEndpoints, $endpoint);
+    $endpoint->setOwnerIndex($idx);
+    
+    // Send control event to create inbound endpoint.
+    $this->controllerDataPipe->write(array(
+      'type' => 'create-endpoint',
+      'endpoint-type' => 'inbound',
+      'name' => $name,
+      'read-format' => $format,
+      'write-format' => $format,
+      'index' => $idx,
+      'closable' => false,
+    ));
+    FileDescriptorManager::sendFD(
+      $this->controllerControlPipe['write'],
+      $endpoint->getReadFD());
+      
     return $endpoint;
   }
   
   /**
    * Attaches FD 1 (stdout) as an outbound endpoint to this pipe.
    */
-  public function attachStdoutEndpoint($format = null) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
-    }
-  
+  public function attachStdoutEndpoint($format = null, $name = null) {
+    $this->startControllerIfNotRunning();
+    
     if ($format === null) {
       $format = $this->defaultOutboundFormat;
     }
     
+    // Create the endpoint and instantiate the native pipe
+    // underneath.
     $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDOUT_FILENO)))
-      ->setName("stdout")
+      ->setOwnerPipe($this)
+      ->setOwnerType('outbound')
+      ->setName($name)
       ->setReadFormat($format)
-      ->setWriteFormat($format)
-      ->setClosable(false);
-    $this->outboundEndpoints[] = $endpoint;
+      ->setWriteFormat($format);
+    $endpoint->instantiatePipe();
+    $idx = array_push($this->outboundEndpoints, $endpoint);
+    $endpoint->setOwnerIndex($idx);
+    
+    // Send control event to create inbound endpoint.
+    $this->controllerDataPipe->write(array(
+      'type' => 'create-endpoint',
+      'endpoint-type' => 'outbound',
+      'name' => $name,
+      'read-format' => $format,
+      'write-format' => $format,
+      'index' => $idx,
+      'closable' => false,
+    ));
+    FileDescriptorManager::sendFD(
+      $this->controllerControlPipe['write'],
+      $endpoint->getWriteFD());
+      
     return $endpoint;
   }
   
   /**
    * Attaches FD 2 (stderr) as an outbound endpoint to this pipe.
    */
-  public function attachStderrEndpoint($format = null) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe is immutable; controller has been started.');
-    }
-  
+  public function attachStderrEndpoint($format = null, $name = null) {
+    $this->startControllerIfNotRunning();
+    
     if ($format === null) {
       $format = $this->defaultOutboundFormat;
     }
     
+    // Create the endpoint and instantiate the native pipe
+    // underneath.
     $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDERR_FILENO)))
-      ->setName("stderr")
+      ->setOwnerPipe($this)
+      ->setOwnerType('outbound')
+      ->setName($name)
       ->setReadFormat($format)
-      ->setWriteFormat($format)
-      ->setClosable(false);
-    $this->outboundEndpoints[] = $endpoint;
+      ->setWriteFormat($format);
+    $endpoint->instantiatePipe();
+    $idx = array_push($this->outboundEndpoints, $endpoint);
+    $endpoint->setOwnerIndex($idx);
+    
+    // Send control event to create inbound endpoint.
+    $this->controllerDataPipe->write(array(
+      'type' => 'create-endpoint',
+      'endpoint-type' => 'outbound',
+      'name' => $name,
+      'read-format' => $format,
+      'write-format' => $format,
+      'index' => $idx,
+      'closable' => false,
+    ));
+    FileDescriptorManager::sendFD(
+      $this->controllerControlPipe['write'],
+      $endpoint->getWriteFD());
+      
     return $endpoint;
   }
-
+  
   /**
-   * Performs a single update step, taking objects from the
-   * inbound streams and directing them to the outbound streams.
+   * Constructs a "self call" event to the controller.
    */
-  public function update() {
-    if (count($this->outboundEndpoints) === 0) {
-      throw new Exception(
-        'This pipe has no outbound endpoints configured and thus '.
-        'can not send data anywhere.');
+  private function dispatchControlSelfCallEvent($function_name) {
+    $msg = array(
+      'type' => 'self-call',
+      'function' => $function_name,
+      'argv' => func_get_args(),
+    );
+    $this->controllerDataPipe->write($msg);
+  }
+  
+  /**
+   * Constructs an "endpoint call" event to the controller.
+   */
+  public function dispatchControlEndpointCallEvent($index, $type, $function_name, $argv) {
+    $msg = array(
+      'type' => 'endpoint-call',
+      'index' => $index,
+      'endpoint-type' => $type,
+      'function' => $function_name,
+      'argv' => $argv,
+    );
+    $this->controllerDataPipe->write($msg);
+  }
+  
+  /**
+   * Handles a control event being sent to the controller process
+   * over the control data pipe.  This is used to update the state
+   * of the controller process after it has been created by the shell.
+   */
+  private function handleControlEvent() {
+    try {
+      $call = $this->controllerDataPipe->read();
+    } catch (NativePipeClosedException $ex) {
+      // Unable to read any more data from the control stream.
+      $this->controllerDataPipe->close();
+      FileDescriptorManager::close($this->controllerControlPipe['read']);
+      $this->controllerDataPipe = null;
+      $this->controllerControlPipe = null;
+      return;
     }
     
-    $temporary = array();
+    switch ($call['type']) {
+      case 'self-call':
+        call_user_func_array(array($this, $call['function']), $call['argv']);
+        break;
+      case 'create-endpoint':
+        if ($call['endpoint-type'] === 'inbound') {
+          $fd_type = 'read';
+        } else {
+          $fd_type = 'write';
+        }
+        $fd = FileDescriptorManager::receiveFD(
+          $this->controllerControlPipe['read'],
+          'native pipe for '.$call['name'],
+          $fd_type);
+        $pipe = null;
+        if ($call['endpoint-type'] === 'inbound') {
+          $pipe = array('write' => null, 'read' => $fd);
+        } else {
+          $pipe = array('write' => $fd, 'read' => null);
+        }
+        $endpoint = id(new Endpoint($pipe))
+          ->setName($call['name'])
+          ->setReadFormat($call['read-format'])
+          ->setWriteFormat($call['write-format'])
+          ->setClosable($call['closable'])
+          ->setOwnerPipe($this)
+          ->setOwnerType($call['endpoint-type']);
+        // We skip setOwnerIndex so that the controller
+        // doesn't use remoting.
+        if ($call['endpoint-type'] === 'inbound') {
+          $this->inboundEndpoints[$call['index']] = $endpoint;
+          $this->hasPreviouslyHadInboundEndpoints = true;
+        } else {
+          $this->outboundEndpoints[$call['index']] = $endpoint;
+          $this->sendPendingObjects();
+        }
+        break;
+      case 'endpoint-call':
+        if ($call['endpoint-type'] === 'inbound') {
+          call_user_func_array(
+            array(
+              $this->inboundEndpoints[$call['index']],
+              $call['function']),
+            $call['argv']);
+        } else {
+          call_user_func_array(
+            array(
+              $this->outboundEndpoints[$call['index']],
+              $call['function']),
+            $call['argv']);
+        }
+        break;
+      default:
+        omni_trace('unknown control event: '.$call['type']);
+        break;
+    }
+  }
+  
+  /**
+   * Sends any objects that have been accumulated while waiting
+   * for an outbound endpoint to be connected.  Since this method
+   * will only have an effect after the first endpoint is connected,
+   * we can just send all objects to the first, and only, endpoint.
+   */
+  private function sendPendingObjects() {
+    if (count($this->objectsPendingConnectionOfOutboundEndpoints) === 0) {
+      return;
+    }
     
+    if (count($this->outboundEndpoints) === 0) {
+      throw new Exception(
+        'sendPendingObjects called when no '.
+        'outbound endpoints present');
+    }
+    
+    $outbound = head($this->outboundEndpoints);
+    foreach ($this->objectsPendingConnectionOfOutboundEndpoints as $object) {
+      $outbound->write($object);
+    }
+    $this->objectsPendingConnectionOfOutboundEndpoints = array();
+  }
+  
+  /**
+   * Starts the seperate controller process if it's not
+   * currently running.
+   */
+  private function startControllerIfNotRunning() {
+    if ($this->controllerPid !== null) {
+      return;
+    }
+    
+    omni_trace("starting runtime pipe controller");
+    
+    omni_trace("creating native control pipe");
+    
+    $this->controllerControlPipe = FileDescriptorManager::createControlPipe(
+      'control read',
+      'control write');
+    
+    omni_trace("creating native data pipe");
+    
+    $this->controllerDataPipe = new Endpoint();
+    $this->controllerDataPipe->instantiatePipe();
+    
+    omni_trace("forking omni for pipe controller");
+    
+    $pid = pcntl_fork();
+    if ($pid === 0) {
+      omni_trace("i am the child pipe controller");
+      
+      $this->controllerPid = posix_getpid();
+      
+      if ($this->shell !== null && $this->job !== null) {
+        $this->shell->prepareForkedProcess($this->job, true);
+      }
+      
+      omni_trace("setting SIGTTIN to SIG_IGN");
+      
+      pcntl_signal(SIGTTIN, SIG_IGN);
+      
+      omni_trace("pipe ".posix_getpid());
+      
+      FileDescriptorManager::close(
+        $this->controllerControlPipe['write']);
+      $this->controllerDataPipe->closeWrite();
+      
+      omni_trace("updating pipe controller forever");
+      
+      // This is the child process.
+      while ($this->update()) {
+        // Repeat while update returns true.
+      }
+      
+      omni_trace("all inputs exhausted");
+      
+      omni_trace("pipe controller is now exiting");
+      
+      omni_exit(0);
+    } else if ($pid > 0) {
+      omni_trace("i am the parent process, with child pid $pid");
+      
+      omni_trace("closing read ends of native pipes");
+      
+      FileDescriptorManager::close(
+        $this->controllerControlPipe['read']);
+      $this->controllerDataPipe->closeRead();
+      
+      omni_trace("setting pipe controller pid");
+      
+      $this->controllerPid = $pid;
+    } else {
+      throw new Exception('Unable to fork for pipe controller.');
+    }
+  }
+  
+  /**
+   * Performs a single update step in the controller process,
+   * taking objects from the inbound streams and directing
+   * them to the outbound streams.
+   */
+  private function update() {
+    $temporary = array();
     $inbound_fds = array();
     $outbound_fds = array();
     $except_fds = array();
+    
+    omni_trace("begin update");
+    
     foreach ($this->inboundEndpoints as $key => $endpoint) {
+      omni_trace("add endpoint read ".$endpoint->getReadFD());
       $inbound_fds[$key] = $endpoint->getReadFD();
       $except_fds[$key] = $endpoint->getReadFD();
     }
     
-    if (count($inbound_fds) === 0) {
+    if ($this->controllerDataPipe !== null) {
+      omni_trace("add controller data pipe");
+      $inbound_fds[] = $this->controllerDataPipe->getReadFD();
+    }
+    
+    if (count($inbound_fds) === 0 && $this->hasPreviouslyHadInboundEndpoints) {
       // No further update() calls will result in more activity.
       return false;
     }
     
-    $result = fd_select($inbound_fds, $outbound_fds, $except_fds);
+    $result = FileDescriptorManager::select($inbound_fds, $outbound_fds, $except_fds);
     $streams_ready = idx($result, 'ready');
     $inbound_fds = idx($result, 'read');
     $outbound_fds = idx($result, 'write');
@@ -208,9 +525,26 @@ final class Pipe extends Phobject {
       omni_trace("WARNING: SELECT RETURNING WITH NO READY STREAMS!");
     }
     
+    omni_trace("checking for control messages");
+    
+    // Handle control events as a priority, and don't do anything else
+    // until we've handled them all.  We return here so that update()
+    // will be called to pull all control events from the data pipe
+    // before we handle any actual objects.
+    if ($this->controllerDataPipe !== null) {
+      if (idx($inbound_fds, $this->controllerDataPipe->getReadFD(), false)) {
+        omni_trace("handling control event...");
+        $this->handleControlEvent();
+        return true;
+      }
+    }
+    
+    omni_trace("reading objects");
+    
     // Read objects from all the streams that are
     // ready for reading.
     foreach ($this->inboundEndpoints as $key => $endpoint) {
+      omni_trace("evaluating ".$endpoint->getReadFD()."...");
       if (idx($inbound_fds, $endpoint->getReadFD(), false)) {
         $converter = new TypeConverter();
         
@@ -245,12 +579,22 @@ final class Pipe extends Phobject {
       }
     }
     
+    omni_trace("there are ".count($temporary)." objects to dispatch");
+    
     if (count($temporary) === 0) {
-      // We have no objects.
-      
-      // TODO: We shouldn't really be able to get here, given that
-      // fd_select told us we can read data from one of the inbound
-      // endpoints.  Should this actually be an error?
+      // We have no objects.  This might be because the
+      // file descriptors were selected because they've
+      // been closed and we just needed to update their
+      // status (rather than reading objects from them).
+      return true;
+    }
+    
+    if (count($this->outboundEndpoints) === 0) {
+      // Place the objects in a buffer for outbound endpoints, to
+      // be dispatched when an outbound endpoint is connected.
+      foreach ($temporary as $object) {
+        $this->objectsPendingConnectionOfOutboundEndpoints[] = $object;
+      }
       return true;
     }
     
@@ -269,7 +613,7 @@ final class Pipe extends Phobject {
           
           $selected = array_slice($temporary, $i, $i + $per_writer + $x);
           foreach ($selected as $obj) {
-            echo "Dispatching object to outbound endpoint ".$outbound->getName()."\n";
+            omni_trace("Dispatching object to outbound endpoint ".$outbound->getName()."\n");
             $outbound->write($obj);
           }
           $i += $per_writer;
@@ -286,166 +630,5 @@ final class Pipe extends Phobject {
     
     return true;
   }
-  
-  /*
-  public function controllerReceivedSIGTERM() {
-    omni_trace("controller got SIGTERM!");
-  
-    // Close off all endpoints.
-    foreach ($this->inboundEndpoints as $endpoint) {
-      $endpoint->close();
-    }
-    foreach ($this->outboundEndpoints as $endpoint) {
-      $endpoint->close();
-    }
-    
-    // Then exit.
-    omni_exit(0);
-  }
-  */
-  
-  public function isValid() {
-    return count($this->inboundEndpoints) > 0 && count($this->outboundEndpoints) > 0;
-  }
-  
-  public function startController(Shell $shell, Job $job, $report_untracked = false) {
-    if ($this->controllerPid !== null) {
-      throw new Exception('Pipe controller has already been started!');
-    }
-  
-    omni_trace("starting pipe controller");
-    
-    omni_trace("instantiating native pipes for endpoints");
-    foreach ($this->inboundEndpoints as $endpoint) {
-      $endpoint->instantiatePipe();
-    }
-    foreach ($this->outboundEndpoints as $endpoint) {
-      $endpoint->instantiatePipe();
-    }
-  
-    omni_trace("forking omni for pipe controller");
-  
-    $pid = pcntl_fork();
-    if ($pid === 0) {
-      omni_trace("i am the child pipe controller");
-      
-      $shell->prepareForkedProcess($job, true);
-      
-      omni_trace("setting SIGTTIN to SIG_IGN");
-      
-      pcntl_signal(SIGTTIN, SIG_IGN);
-      
-      //omni_trace("registering SIGTERM");
-      
-      //pcntl_signal(SIGTERM, SIG_DFL);
-      //pcntl_signal(SIGTERM, array($this, 'controllerReceivedSIGTERM'));
-      
-      omni_trace("pipe ".posix_getpid().": ".$this->getName());
-      
-      omni_trace("closing opposite endpoints for child");
-      
-      // We have to close the other ends of the endpoints
-      // when in the child process, so that end-of-pipe
-      // signals work correctly.
-      foreach ($this->inboundEndpoints as $endpoint) {
-        $endpoint->closeWrite();
-      }
-      foreach ($this->outboundEndpoints as $endpoint) {
-        $endpoint->closeRead();
-      }
-      
-      omni_trace("updating pipe controller forever");
-      
-      // This is the child process.
-      while ($this->update()) {
-        // Repeat while update returns true.
-      }
-      
-      omni_trace("all inputs exhausted");
-      
-      omni_trace("closing all endpoints for child");
-      
-      // Close all outbound and inbound endpoints, to ensure
-      // that anyone listening on any of the system pipes
-      // knows that all the data has been sent.
-      foreach ($this->inboundEndpoints as $endpoint) {
-        $endpoint->closeRead();
-      }
-      foreach ($this->outboundEndpoints as $endpoint) {
-        $endpoint->closeWrite();
-      }
-      
-      omni_trace("pipe controller is now exiting");
-      
-      omni_exit(0);
-    } elseif ($pid > 0) {
-      omni_trace("i am the parent process, with child pid $pid");
-      
-      omni_trace("setting pipe controller pid");
-      
-      // Parent process; set the controller PID to
-      // prevent other operations from changing the pipe.
-      $this->controllerPid = $pid;
-      
-      omni_trace("closing opposite endpoints for parent");
-      
-      // We have to close the other ends of the endpoints
-      // when in the parent process, so that end-of-pipe
-      // signals work correctly.
-      foreach ($this->inboundEndpoints as $endpoint) {
-        $endpoint->closeRead();
-      }
-      foreach ($this->outboundEndpoints as $endpoint) {
-        $endpoint->closeWrite();
-      }
-      
-      omni_trace("returning process wrapper");
-      
-      // Return the new pipe process inside the process
-      // wrapper.
-      $process = new ProcessIDWrapper($pid, 'pipe', $this->getName());
-      if ($report_untracked) {
-        // TODO: Use a better flag here?
-        $process->setCompleted(true);
-      }
-      return $process;
-    } else {
-      // Unable to start controller.
-      throw new Exception('Unable to start pipe controller!');
-    }
-  }
-  
-  public function killController() {
-    if ($this->controllerPid === null) {
-      return;
-    }
-  
-    omni_trace("terminating controller with pid ".$this->controllerPid);
-    
-    posix_kill($this->controllerPid, SIGTERM);
-    
-    omni_trace("waiting for controller with pid ".$this->controllerPid." to finish up...");
-    
-    $status = '';
-    $pid = pcntl_waitpid($this->controllerPid, $status, 0);
-    if ($pid === $this->controllerPid) {
-      omni_trace("got status $status after waitpid returned from controller");
-    } else {
-      omni_trace("got status $status after waitpid returned FROM UNKNOWN PROCESS");
-    } 
-    
-    if (pcntl_wifstopped($status)) {
-      omni_trace("controller process is STOPPED");
-    }
-    if (pcntl_wifexited($status)) {
-      omni_trace("controller process is EXITED");
-    }
-    if (pcntl_wifsignaled($status)) {
-      omni_trace("controller process is SIGNALED");
-      omni_trace("controller process got signal ".pcntl_wtermsig($status));
-    }
-    
-    omni_trace("assuming controller has exited....");
-  }
-  
+
 }

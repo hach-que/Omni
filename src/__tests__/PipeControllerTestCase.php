@@ -3,15 +3,10 @@
 final class PipeControllerTestCase extends PhutilTestCase {
 
   public function testPHPSerializedArray() {
-    $shell = new Shell();
-    $job = new Job();
-    
     $pipe = new Pipe();
     $write = $pipe->createInboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
     $read = $pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
   
-    $pipe->startController($shell, $job);
-    
     $write->write(array("success" => true));
     $write->close();
     
@@ -20,14 +15,9 @@ final class PipeControllerTestCase extends PhutilTestCase {
   }
   
   public function testOrderIsCorrect() {
-    $shell = new Shell();
-    $job = new Job();
-    
     $pipe = new Pipe();
     $write = $pipe->createInboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
     $read = $pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
-  
-    $pipe->startController($shell, $job);
     
     $write->write(array("order_1" => true));
     $write->write(array("order_2" => true));
@@ -38,20 +28,23 @@ final class PipeControllerTestCase extends PhutilTestCase {
   }
   
   public function testMultipleInboundEndpoints() {
-    $shell = new Shell();
-    $job = new Job();
-    
+    omni_trace("TEST: CREATING RUNTIME PIPE");
     $pipe = new Pipe();
+    omni_trace("TEST: CREATING WRITE ENDPOINT 1");
     $write_1 = $pipe->createInboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
+    omni_trace("TEST: CREATING WRITE ENDPOINT 2");
     $write_2 = $pipe->createInboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
+    omni_trace("TEST: CREATING READ ENDPOINT");
     $read = $pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
-  
-    $pipe->startController($shell, $job);
     
+    omni_trace("TEST: WRITING DATA");
     $write_2->write(array("success" => true));
+    omni_trace("TEST: CLOSING WRITE ENDPOINT 2");
     $write_2->close();
     
+    omni_trace("TEST: READING FROM ENDPOINT");
     $result = $read->read();
+    omni_trace("TEST: PERFORMING ASSERT");
     $this->assertEqual(true, idx($result, "success"));
   }
   
@@ -59,15 +52,10 @@ final class PipeControllerTestCase extends PhutilTestCase {
   // indeterminate as to what outbound endpoints will get what objects.
   
   public function testMultipleOutboundEndpointsRoundRobinDistribution() {
-    $shell = new Shell();
-    $job = new Job();
-    
     $pipe = new Pipe();
     $write = $pipe->createInboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION, "write");
     $read_1 = $pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION, "read_1");
     $read_2 = $pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION, "read_2");
-    
-    $pipe->startController($shell, $job);
     
     $write->write(array("entry_1" => true));
     $write->write(array("entry_2" => true));
@@ -80,14 +68,9 @@ final class PipeControllerTestCase extends PhutilTestCase {
   }
   
   public function testByteStreamData() {
-    $shell = new Shell();
-    $job = new Job();
-    
     $pipe = new Pipe();
     $write = $pipe->createInboundEndpoint(Endpoint::FORMAT_BYTE_STREAM);
     $read = $pipe->createOutboundEndpoint(Endpoint::FORMAT_BYTE_STREAM);
-  
-    $pipe->startController($shell, $job);
     
     $write->write('content');
     $write->close();
@@ -101,15 +84,10 @@ final class PipeControllerTestCase extends PhutilTestCase {
   }
   
   public function testHugeByteStreamData() {
-    $shell = new Shell();
-    $job = new Job();
-    
     $pipe = new Pipe();
     $write = $pipe->createInboundEndpoint(Endpoint::FORMAT_BYTE_STREAM);
     $read = $pipe->createOutboundEndpoint(Endpoint::FORMAT_BYTE_STREAM);
   
-    $pipe->startController($shell, $job);
-    
     $data = '';
     for ($i = 0; $i < 512; $i++) {
       $data .= '0123456789';
@@ -125,4 +103,5 @@ final class PipeControllerTestCase extends PhutilTestCase {
     
     $this->assertEqual($data, $result);
   }
+  
 }

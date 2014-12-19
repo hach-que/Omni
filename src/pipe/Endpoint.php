@@ -20,6 +20,9 @@ final class Endpoint extends Phobject {
   private $name = null;
   private $closable = true;
   private $userFriendlyFormatter = null;
+  private $ownerPipe = null;
+  private $ownerIndex = null;
+  private $ownerType = null;
 
   public function __construct($pipe = null) {
     if ($pipe === null) {
@@ -31,7 +34,43 @@ final class Endpoint extends Phobject {
     }
   }
   
+  private function isRemoted() {
+    return $this->ownerPipe !== null &&
+      $this->ownerIndex !== null &&
+      $this->ownerType !== null;
+  }
+  
+  private function remoteCall($function_name) {
+    if (!$this->isRemoted()) {
+      throw new Exception('remoteCall called on non-remoted endpoint');
+    }
+    
+    $this->ownerPipe->dispatchControlEndpointCallEvent(
+      $this->ownerIndex,
+      $this->ownerType,
+      $function_name,
+      func_get_args());
+  }
+  
+  public function setOwnerPipe(Pipe $pipe) {
+    $this->ownerPipe = $pipe;
+    return $this;
+  }
+  
+  public function setOwnerIndex($index) {
+    $this->ownerIndex = $index;
+    return $this;
+  }
+  
+  public function setOwnerType($type) {
+    $this->ownerType = $type;
+    return $this;
+  }
+  
   public function setName($name) {
+    if ($this->isRemoted()) {
+      $this->remoteCall(__FUNCTION__, $name);
+    }
     $this->name = $name;
     return $this;
   }
@@ -45,6 +84,9 @@ final class Endpoint extends Phobject {
   }
   
   public function setClosable($closable) {
+    if ($this->isRemoted()) {
+      $this->remoteCall(__FUNCTION__, $closable);
+    }
     $this->closable = $closable;
     return $this;
   }
@@ -76,11 +118,17 @@ final class Endpoint extends Phobject {
   }
   
   public function setWriteFormat($format) {
+    if ($this->isRemoted()) {
+      $this->remoteCall(__FUNCTION__, $format);
+    }
     $this->writeFormat = $format;
     return $this;
   }
   
   public function setReadFormat($format) {
+    if ($this->isRemoted()) {
+      $this->remoteCall(__FUNCTION__, $format);
+    }
     $this->readFormat = $format;
     return $this;
   }
@@ -95,7 +143,7 @@ final class Endpoint extends Phobject {
   
   public function instantiatePipe() {
     if ($this->nativePipePending) {
-      $this->nativePipe = fd_pipe();
+      $this->nativePipe = FileDescriptorManager::createPipe('endpoint read', 'endpoint write');
       $this->nativePipePending = false;
       omni_trace("created a pipe with read FD ".$this->getReadFD()." and write FD ".$this->getWriteFD());
     }
@@ -136,28 +184,7 @@ final class Endpoint extends Phobject {
         break;
     }
     
-    $buffer = $data;
-    $to_write = strlen($data);
-    $written = 0;
-    do {
-      $result = fd_write($this->getWriteFD(), $buffer);
-      if ($result === false) {
-        // Error.
-        throw new Exception('error: write: '.idx(fd_get_error(), 'error'));
-      } else if ($result === true) {
-        // Non-blocking; not ready for write.
-        usleep(5000);
-      } else if ($result === null) {
-        // Pipe closed.
-        throw new NativePipeClosedException();
-      } else {
-        // Wrote $result bytes.
-        $written += $result;
-        if ($written < $to_write) {
-          $buffer = substr($data, $written);
-        }
-      }
-    } while ($written < $to_write);
+    FileDescriptorManager::write($this->getWriteFD(), $data);
   }
   
   private function lengthPrefix($data) {
@@ -177,52 +204,43 @@ final class Endpoint extends Phobject {
   public function read() {
     $fd = $this->getReadFD();
     
+    omni_trace("called read for FD $fd");
+    
     switch ($this->writeFormat) {
       case self::FORMAT_PHP_SERIALIZATION:
-        fd_set_blocking($fd, true);
+        FileDescriptorManager::setBlocking($fd, true);
         $data = $this->readLengthPrefixed($fd);
         return unserialize($data);
       case self::FORMAT_LENGTH_PREFIXED_JSON:
-        fd_set_blocking($fd, true);
+        FileDescriptorManager::setBlocking($fd, true);
         $data = $this->readLengthPrefixed($fd);
         return json_decode($data);
       case self::FORMAT_BYTE_STREAM:
-        fd_set_blocking($fd, false);
-        $data = $this->readFromFD($fd, 4096);
+        FileDescriptorManager::setBlocking($fd, false);
+        $data = FileDescriptorManager::read($fd, 4096);
         if ($data === true) {
           // No data available yet (EAGAIN).
           return '';
-        } else if ($data === null) {
-          // Pipe closed.
-          throw new NativePipeClosedException();
         } else {
           return $data;
         }
       case self::FORMAT_NEWLINE_SEPARATED:
-        fd_set_blocking($fd, true);
+        FileDescriptorManager::setBlocking($fd, true);
         $buffer = '';
         $char = null;
         while ($char !== "\n") {
-          $char = $this->readFromFD($fd, 1);
-          if ($char === null) {
-            // Pipe closed.
-            throw new NativePipeClosedException();
-          }
+          $char = FileDescriptorManager::read($fd, 1);
           if ($char !== "\n") {
             $buffer .= $char;
           }
         }
         return $buffer;
       case self::FORMAT_NULL_SEPARATED:
-        fd_set_blocking($fd, true);
+        FileDescriptorManager::setBlocking($fd, true);
         $buffer = '';
         $char = null;
         while ($char !== "\0") {
-          $char = $this->readFromFD($fd, 1);
-          if ($char === null) {
-            // Pipe closed.
-            throw new NativePipeClosedException();
-          }
+          $char = FileDescriptorManager::read($fd, 1);
           if ($char !== "\0") {
             $buffer .= $char;
           }
@@ -232,25 +250,9 @@ final class Endpoint extends Phobject {
         throw new Exception('Unknown read format '.$this->readFormat);
     }
   }
-  
-  private function readFromFD($fd, $length) {
-    $result = fd_read($fd, $length);
-    if ($result === false) {
-      $error = fd_get_error();
-      if ($error['errno'] === 5 /* EIO */ && $this->getReadFD() === 0) {
-        throw new EIOWhileReadingStdinException();
-      } else {
-        throw new Exception('error: read: '.$error['error']);
-      }
-    }
-    return $result;
-  }
 
   private function readLengthPrefixed($fd) {
-    $length_bytes = $this->readFromFD($fd, 4);
-    if ($length_bytes === null) {
-      throw new NativePipeClosedException();
-    }
+    $length_bytes = FileDescriptorManager::read($fd, 4);
     
     $length_byte_1 = ord($length_bytes[0]);
     $length_byte_2 = ord($length_bytes[1]);
@@ -261,11 +263,7 @@ final class Endpoint extends Phobject {
       ($length_byte_2 << 16) |
       ($length_byte_3 << 8) |
       $length_byte_4;
-    $data = $this->readFromFD($fd, $length);
-    if ($data === null) {
-      throw new NativePipeClosedException();
-    }
-    return $data;
+    return FileDescriptorManager::read($fd, $length);
   }
   
   public function close() {
@@ -282,7 +280,8 @@ final class Endpoint extends Phobject {
         return;
       }
       
-      fd_close($this->getReadFD());
+      omni_trace("closing file descriptor ".$this->getReadFD()." because closeRead was called");
+      FileDescriptorManager::close($this->getReadFD());
       $this->nativePipe['read'] = null;
     }
   }
@@ -296,7 +295,8 @@ final class Endpoint extends Phobject {
         return;
       }
       
-      fd_close($this->getWriteFD());
+      omni_trace("closing file descriptor ".$this->getWriteFD()." because closeWrite was called");
+      FileDescriptorManager::close($this->getWriteFD());
       $this->nativePipe['write'] = null;
     }
   }

@@ -143,7 +143,8 @@ final class Job extends Phobject implements HasTerminalModesInterface {
         
         // If this is not the last stage in the job, create
         // an Omni pipe for transferring objects.
-        $pipe_next = new Pipe();
+        $pipe_next = id(new Pipe())
+          ->setShellAndJob($shell, $this);
         $pipes[] = $pipe_next;
       } else {
         omni_trace("stage $i is last job, pointing stdout at real stdout");

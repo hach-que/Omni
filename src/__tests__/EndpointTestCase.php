@@ -63,6 +63,7 @@ abstract class EndpointTestCase extends PhutilTestCase {
     $endpoint = new Endpoint();
     $endpoint->setReadFormat($this->getSerializationFormat());
     $endpoint->setWriteFormat($this->getSerializationFormat());
+    $endpoint->instantiatePipe();
     $endpoint->write($expected_value);
     $value = $endpoint->read();
     $endpoint->close();
@@ -84,6 +85,7 @@ abstract class EndpointTestCase extends PhutilTestCase {
     }
     
     $endpoint = new Endpoint();
+    $endpoint->instantiatePipe();
     $endpoint->setReadFormat($this->getSerializationFormat());
     $endpoint->setWriteFormat($this->getSerializationFormat());
     $endpoint->write($expected_value);
