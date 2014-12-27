@@ -135,7 +135,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
 
 
   public function createInternalStderrEndpoint() {
-    return id(new Endpoint(array('read' => null, 'write' => Shell::STDERR_FILENO)))
+    return id(new Endpoint(array('read' => null, 'write' => FileDescriptorManager::STDERR_FILENO)))
       ->setName("shell stderr")
       ->setWriteFormat(Endpoint::FORMAT_USER_FRIENDLY)
       ->setClosable(false);
@@ -207,15 +207,10 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   public function scheduleJob(Job $job) {
     if (!$this->isInteractive) {
-      if ($job->getProcessGroupIDOrNull() === null) {
-        // TODO Even with builtins we should have a stdout pipe
-        // controller running, so find out why this returns
-        // null here even though we should be able to wait on
-        // the pipe.
-      }
+      $this->jobs[$this->shellProcessGroupID] = $job;
+    } else {
+      $this->jobs[$job->getProcessGroupIDOrAssert()] = $job;
     }
-    
-    $this->jobs[$job->getProcessGroupIDOrAssert()] = $job;
   
     if (!$this->isInteractive) {
       $this->waitForJob($job);
@@ -488,7 +483,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     omni_trace("taking control of terminal back to ".$this->shellProcessGroupID);
     if (!tc_tcsetpgrp($this->terminal, $this->shellProcessGroupID)) {
       omni_trace("FAILED TO TAKE CONTROL OF TERMINAL!!!!");
-      omni_trace("ERROR FROM TCSETPGRP WAS: ".tc_get_error());
+      omni_trace("ERROR FROM TCSETPGRP WAS: ".idX(tc_get_error(), 'error'));
       throw new Exception('Unable to regain control of terminal');
     }
     

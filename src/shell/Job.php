@@ -8,7 +8,6 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   private $foreground = true;
   private $terminalModes;
   private $userHasBeenNotifiedOfNewStatus = false;
-  private $killPipesOnJobCompletion = array();
   private $command;
   
   public function hasUserBeenNotifiedOfNewStatus() {
@@ -83,15 +82,6 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   }
   
   public function finalize() {
-    $this->killRemainingPipes();
-  }
-  
-  private function killRemainingPipes() {
-    foreach ($this->killPipesOnJobCompletion as $pipe) {
-      $pipe->killController();
-    }
-    
-    $this->killPipesOnJobCompletion = array();
   }
   
   public function getProcessGroupIDOrAssert() {
@@ -119,13 +109,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     omni_trace("starting job execution");
   
     $pipes = array();
+    $pipes[] = $stdin;
     $pipes[] = $stdout;
     $pipes[] = $stderr;
-    
-    // We actually want to kill these pipe controllers on job completion, because
-    // some programs will ignore standard input (and therefore if the program connected
-    // to stdin exits, we know we can terminate the input controller as well).
-    $this->killPipesOnJobCompletion[] = $stdin;
     
     omni_trace("keep track of pipes to run");
     
@@ -167,22 +153,19 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("i am PID ".posix_getpid());
     
-    if ($stdin->isValid()) {
-      omni_trace("starting pipe ".$stdin->getName());
-      $this->processes[] = $stdin->startController($shell, $this, true);
-    } else {
-      omni_trace("not starting stdin pipe because it has no outbound endpoints");
-    } 
-    
     foreach ($pipes as $pipe) {
-      if ($pipe->isValid()) {
-        omni_trace("starting pipe ".$pipe->getName());
+      omni_trace("marking ".$pipe->getName()." as finalized");
       
-        $this->processes[] = $pipe->startController($shell, $this);
-      } else {
-        omni_trace(
-          "pipe not valid because it has either no inbound ".
-          "or outbound endpoints: ".$pipe->getName());
+      // This pipe won't be modified by us any more, so we should assume
+      // all inbound and outbound endpoints that would have been connected, 
+      // have been connected.  This needs to be done because if we're running
+      // a builtin, it might not add an endpoint to standard input, which would
+      // keep the standard input controller running (even when it should exit).
+      $pipe->markFinalized();
+      
+      $process = $pipe->getControllerProcess($shell, $this);
+      if ($process !== null) {
+        $this->processes[] = $process;
       }
     }
     

@@ -1,6 +1,6 @@
 <?php
 
-final class Pipe extends Phobject {
+class Pipe extends Phobject {
 
   const DIST_METHOD_ROUND_ROBIN = 'round-robin';
   const DIST_METHOD_SPLIT = 'split';
@@ -16,6 +16,7 @@ final class Pipe extends Phobject {
   private $defaultInboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   private $defaultOutboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   private $hasPreviouslyHadInboundEndpoints = false;
+  private $hasPreviouslyHadOutboundEndpoints = false;
   private $objectsPendingConnectionOfOutboundEndpoints = array();
   private $shell = null;
   private $job = null;
@@ -74,6 +75,19 @@ final class Pipe extends Phobject {
       $this->defaultOutboundFormat = $format;
     } else {
       $this->dispatchControlSelfCallEvent(__FUNCTION__, $format);
+    }
+    
+    return $this;
+  }
+  
+  public function markFinalized() {
+    $this->startControllerIfNotRunning();
+    
+    if ($this->controllerPid === posix_getpid()) {
+      $this->hasPreviouslyHadInboundEndpoints = true;
+      $this->hasPreviouslyHadOutboundEndpoints = true;
+    } else {
+      $this->dispatchControlSelfCallEvent(__FUNCTION__);
     }
     
     return $this;
@@ -179,9 +193,13 @@ final class Pipe extends Phobject {
       $format = $this->defaultInboundFormat;
     }
     
+    if ($name === null) {
+      $name = 'stdin';
+    }
+    
     // Create the endpoint and instantiate the native pipe
     // underneath.
-    $endpoint = id(new Endpoint(array('read' => Shell::STDIN_FILENO, 'write' => null)))
+    $endpoint = id(new Endpoint(array('read' => FileDescriptorManager::STDIN_FILENO, 'write' => null)))
       ->setOwnerPipe($this)
       ->setOwnerType('inbound')
       ->setName($name)
@@ -219,9 +237,13 @@ final class Pipe extends Phobject {
       $format = $this->defaultOutboundFormat;
     }
     
+    if ($name === null) {
+      $name = 'stdout';
+    }
+    
     // Create the endpoint and instantiate the native pipe
     // underneath.
-    $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDOUT_FILENO)))
+    $endpoint = id(new Endpoint(array('read' => null, 'write' => FileDescriptorManager::STDOUT_FILENO)))
       ->setOwnerPipe($this)
       ->setOwnerType('outbound')
       ->setName($name)
@@ -258,9 +280,13 @@ final class Pipe extends Phobject {
       $format = $this->defaultOutboundFormat;
     }
     
+    if ($name === null) {
+      $name = 'stderr';
+    }
+    
     // Create the endpoint and instantiate the native pipe
     // underneath.
-    $endpoint = id(new Endpoint(array('read' => null, 'write' => Shell::STDERR_FILENO)))
+    $endpoint = id(new Endpoint(array('read' => null, 'write' => FileDescriptorManager::STDERR_FILENO)))
       ->setOwnerPipe($this)
       ->setOwnerType('outbound')
       ->setName($name)
@@ -285,6 +311,19 @@ final class Pipe extends Phobject {
       $endpoint->getWriteFD());
       
     return $endpoint;
+  }
+  
+  public function getName() {
+    $inbound_names = mpull($this->inboundEndpoints, 'getName');
+    $outbound_names = mpull($this->outboundEndpoints, 'getName');
+    $inbound_implode = implode(',', $inbound_names);
+    $outbound_implode = implode(',', $outbound_names);
+    
+    return "[in:(".$inbound_implode.");out:(".$outbound_implode.")]";
+  }
+
+  public function hasEndpoints() {
+    return count($this->inboundEndpoints) > 0 && count($this->outboundEndpoints) > 0;
   }
   
   /**
@@ -364,6 +403,7 @@ final class Pipe extends Phobject {
           $this->hasPreviouslyHadInboundEndpoints = true;
         } else {
           $this->outboundEndpoints[$call['index']] = $endpoint;
+          $this->hasPreviouslyHadOutboundEndpoints = true;
           $this->sendPendingObjects();
         }
         break;
@@ -418,6 +458,8 @@ final class Pipe extends Phobject {
    */
   private function startControllerIfNotRunning() {
     if ($this->controllerPid !== null) {
+      omni_trace(
+        "controller is already running as PID ".$this->controllerPid);
       return;
     }
     
@@ -485,6 +527,13 @@ final class Pipe extends Phobject {
     }
   }
   
+  public function killController() {
+    if ($this->controllerPid !== null) {
+      posix_kill($this->controllerPid, SIGKILL);
+      $this->controllerPid = null;
+    }
+  }
+  
   /**
    * Performs a single update step in the controller process,
    * taking objects from the inbound streams and directing
@@ -498,10 +547,17 @@ final class Pipe extends Phobject {
     
     omni_trace("begin update");
     
+    $real_inbound_endpoints = 0;
     foreach ($this->inboundEndpoints as $key => $endpoint) {
       omni_trace("add endpoint read ".$endpoint->getReadFD());
       $inbound_fds[$key] = $endpoint->getReadFD();
-      $except_fds[$key] = $endpoint->getReadFD();
+      //$except_fds[$key] = $endpoint->getReadFD();
+      $real_inbound_endpoints++;
+    }
+    
+    foreach ($this->outboundEndpoints as $key => $endpoint) {
+      omni_trace("add endpoint write ".$endpoint->getWriteFD());
+      $outbound_fds[$key] = $endpoint->getWriteFD();
     }
     
     if ($this->controllerDataPipe !== null) {
@@ -509,9 +565,22 @@ final class Pipe extends Phobject {
       $inbound_fds[] = $this->controllerDataPipe->getReadFD();
     }
     
-    if (count($inbound_fds) === 0 && $this->hasPreviouslyHadInboundEndpoints) {
-      // No further update() calls will result in more activity.
-      return false;
+    if ($real_inbound_endpoints === 0) {
+      if ($this->hasPreviouslyHadInboundEndpoints) {
+        // No further update() calls will result in more activity.
+        omni_trace(
+          "no inbound endpoints, terminating");
+        return false;
+      }
+    }
+    
+    if (count($outbound_fds) === 0) {
+      if ($this->hasPreviouslyHadOutboundEndpoints) {
+        // No further update() calls will result in more activity.
+        omni_trace(
+          "no outbound endpoints, terminating");
+        return false;
+      }
     }
     
     $result = FileDescriptorManager::select($inbound_fds, $outbound_fds, $except_fds);
@@ -527,7 +596,30 @@ final class Pipe extends Phobject {
     
     omni_trace("checking for control messages");
     
-    // Handle control events as a priority, and don't do anything else
+    // Handle outbound pipe errors first, since this indicates we won't be
+    // able to write any data through this outbound endpoint in the future.
+    // This is essential for tracking all scenarios e.g. where the standard
+    // input pipe controller needs to exit.
+    foreach ($this->outboundEndpoints as $key => $endpoint) {
+      omni_trace("evaluating ".$endpoint->getWriteFD()."...");
+      if (idx($outbound_fds, $endpoint->getWriteFD(), false) === 'error') {
+        // Unable to write any more data from this stream.
+        $endpoint->close();
+        unset($this->outboundEndpoints[$key]);
+        
+        // If this is the last outbound endpoint, then we return now,
+        // because even if we have data to read, we can't send it anywhere.
+        if (count($this->outboundEndpoints) === 0) {
+          omni_trace(
+            "no outbound endpoints, terminating");
+          return false;
+        }
+        
+        continue;
+      }
+    }
+    
+    // Handle control events next, and don't do anything else
     // until we've handled them all.  We return here so that update()
     // will be called to pull all control events from the data pipe
     // before we handle any actual objects.
@@ -620,9 +712,10 @@ final class Pipe extends Phobject {
         }
         break;
       case self::DIST_METHOD_ROUND_ROBIN:
-        $total_writers = count($this->outboundEndpoints);
+        $compacted_endpoints = array_values($this->outboundEndpoints);
+        $total_writers = count($compacted_endpoints);
         foreach ($temporary as $obj) {
-          $this->outboundEndpoints[$this->roundRobinCounter++]->write($obj);
+          $compacted_endpoints[$this->roundRobinCounter++]->write($obj);
           $this->roundRobinCounter = $this->roundRobinCounter % $total_writers;
         }
         break;

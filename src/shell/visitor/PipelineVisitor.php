@@ -14,7 +14,6 @@ final class PipelineVisitor extends Visitor {
     omni_trace("setting up pipes for stdin / stdout / stderr");
     
     $stdin_pipe = new Pipe();
-    $stdin_pipe->attachStdinEndpoint(Endpoint::FORMAT_BYTE_STREAM);
     $stdout_pipe = new Pipe();
     $stdout_pipe->attachStdoutEndpoint(Endpoint::FORMAT_USER_FRIENDLY);
     $stderr_pipe = new Pipe();
@@ -24,6 +23,17 @@ final class PipelineVisitor extends Visitor {
     
     if ($data['data'] === 'foreground') {
       $job->setForeground(true);
+      
+      // FIXME As soon as attachStdinEndpoint is run, the standard input controller
+      // starts.  If there's an exception later on, we aren't killing the standard
+      // input controller (or any of the other controllers for that matter).  We
+      // probably need to give jobs an exception property, and then write any
+      // exception that occurs to that property, before finally sending SIGKILL to
+      // any processes in the job (in addition, we should always add these controllers
+      // as processes to the job, but refer to the TODO in the Job code around standard
+      // input handling).
+      $stdin_pipe->attachStdinEndpoint(Endpoint::FORMAT_BYTE_STREAM);
+      
     } elseif ($data['data'] === 'background') {
       $job->setForeground(false);
     } else {

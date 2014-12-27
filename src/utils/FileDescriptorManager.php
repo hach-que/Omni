@@ -14,6 +14,10 @@
  */
 final class FileDescriptorManager extends Phobject {
 
+  const STDIN_FILENO = 501;
+  const STDOUT_FILENO = 502;
+  const STDERR_FILENO = 503;
+  
   private static $fdTable = array(
     501 => array(
       'name' => 'stdin',
@@ -157,13 +161,13 @@ final class FileDescriptorManager extends Phobject {
     
     foreach (self::$fdTable as $fd => $info) {
       if (idx($real_read_fds, $info['fd'], false)) {
-        $read_fds[$fd] = true;
+        $read_fds[$fd] = idx($real_read_fds, $info['fd'], false);
       }
       if (idx($real_write_fds, $info['fd'], false)) {
-        $write_fds[$fd] = true;
+        $write_fds[$fd] = idx($real_write_fds, $info['fd'], false);
       }
       if (idx($real_except_fds, $info['fd'], false)) {
-        $except_fds[$fd] = true;
+        $except_fds[$fd] = idx($real_except_fds, $info['fd'], false);
       }
     }
     
@@ -193,7 +197,7 @@ final class FileDescriptorManager extends Phobject {
       if ($error['errno'] === 5 /* EIO */ && self::$fdTable[$fd]['fd'] === 0) {
         throw new EIOWhileReadingStdinException();
       } else {
-        throw new Exception('error: read: '.$error['error']);
+        throw new Exception('error: read on FD '.$fd.' (native '.self::$fdTable[$fd]['fd'].'): '.$error['error']);
       }
     } else if ($result === null) {
       throw new NativePipeClosedException();

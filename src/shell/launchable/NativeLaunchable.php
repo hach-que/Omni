@@ -67,9 +67,9 @@ final class NativeLaunchable
       $shell->launchProcess(
         $argv,
         $job,
-        $stdin_endpoint->getReadFD(),
-        $stdout_endpoint->getWriteFD(),
-        $stderr_endpoint->getWriteFD());
+        FileDescriptorManager::getNativeFD($stdin_endpoint->getReadFD()),
+        FileDescriptorManager::getNativeFD($stdout_endpoint->getWriteFD()),
+        FileDescriptorManager::getNativeFD($stderr_endpoint->getWriteFD()));
         
       // We never continue execution here because we're replaced
       // with the child process.
