@@ -9,6 +9,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   private $terminalModes;
   private $userHasBeenNotifiedOfNewStatus = false;
   private $command;
+  private $temporaryPipes;
   
   public function hasUserBeenNotifiedOfNewStatus() {
     return $this->userHasBeenNotifiedOfNewStatus;
@@ -102,16 +103,26 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     return $this->stages;
   }
   
+  public function killTemporaryPipes() {
+    foreach ($this->temporaryPipes as $pipe) {
+      $pipe->killController();
+    }
+  }
+  
+  public function untrackTemporaryPipes() {
+    $this->temporaryPipes = null;
+  }
+  
   public function execute(Shell $shell, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
     $pipe_prev = $stdin;
     $pipe_next = null;
     
     omni_trace("starting job execution");
   
-    $pipes = array();
-    $pipes[] = $stdin;
-    $pipes[] = $stdout;
-    $pipes[] = $stderr;
+    $this->temporaryPipes = array();
+    $this->temporaryPipes[] = $stdin;
+    $this->temporaryPipes[] = $stdout;
+    $this->temporaryPipes[] = $stderr;
     
     omni_trace("keep track of pipes to run");
     
@@ -131,7 +142,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
         // an Omni pipe for transferring objects.
         $pipe_next = id(new Pipe())
           ->setShellAndJob($shell, $this);
-        $pipes[] = $pipe_next;
+        $this->temporaryPipes[] = $pipe_next;
       } else {
         omni_trace("stage $i is last job, pointing stdout at real stdout");
         
@@ -153,7 +164,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("i am PID ".posix_getpid());
     
-    foreach ($pipes as $pipe) {
+    foreach ($this->temporaryPipes as $pipe) {
       omni_trace("marking ".$pipe->getName()." as finalized");
       
       // This pipe won't be modified by us any more, so we should assume
