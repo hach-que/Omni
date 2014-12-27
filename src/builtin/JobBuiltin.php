@@ -15,7 +15,7 @@ final class JobBuiltin extends Builtin {
     Pipe $stderr) {
     
     return array(
-      'stdout' => $stdout->createInboundEndpoint(),
+      'stdout' => $stdout->createInboundEndpoint(null, "job stdout"),
     );
   }
   

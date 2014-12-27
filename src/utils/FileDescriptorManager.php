@@ -37,6 +37,15 @@ final class FileDescriptorManager extends Phobject {
   );
   private static $fdID = 1000;
   
+  public static function replaceStandardPipes($stdin, $stdout, $stderr) {
+    self::$fdTable[self::STDIN_FILENO]['fd'] = 
+      self::$fdTable[$stdin]['fd'];
+    self::$fdTable[self::STDOUT_FILENO]['fd'] = 
+      self::$fdTable[$stdout]['fd'];
+    self::$fdTable[self::STDERR_FILENO]['fd'] = 
+      self::$fdTable[$stderr]['fd'];
+  }
+  
   public static function createPipe($read_name, $write_name) {
     $pipe = fd_pipe();
     if ($pipe === false) {
@@ -104,6 +113,15 @@ final class FileDescriptorManager extends Phobject {
     
     fd_close(self::$fdTable[$fd]['fd']);
     unset(self::$fdTable[$fd]);
+  }
+  
+  public static function closeAll() {
+    foreach (self::$fdTable as $fd => $data) {
+      if ($fd >= 1000) {
+        self::close($fd);
+        unset(self::$fdTable[$fd]);
+      }
+    }
   }
   
   public static function getNativeFD($fd) {

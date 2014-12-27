@@ -18,8 +18,8 @@ final class PipelineVisitor extends Visitor {
     $stderr_pipe = new Pipe();
     
     try {
-      $stdout_pipe->attachStdoutEndpoint(Endpoint::FORMAT_USER_FRIENDLY);
-      $stderr_pipe->attachStderrEndpoint(Endpoint::FORMAT_USER_FRIENDLY);
+      $stdout_pipe->attachStdoutEndpoint(PipeDefaults::$stdoutFormat);
+      $stderr_pipe->attachStderrEndpoint(PipeDefaults::$stderrFormat);
       
       omni_trace("configuring job background / foreground before execution");
       
@@ -34,7 +34,7 @@ final class PipelineVisitor extends Visitor {
         // any processes in the job (in addition, we should always add these controllers
         // as processes to the job, but refer to the TODO in the Job code around standard
         // input handling).
-        $stdin_pipe->attachStdinEndpoint(Endpoint::FORMAT_BYTE_STREAM);
+        $stdin_pipe->attachStdinEndpoint(PipeDefaults::$stdinFormat);
         
       } elseif ($data['data'] === 'background') {
         $job->setForeground(false);

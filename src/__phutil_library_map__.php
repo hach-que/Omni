@@ -48,6 +48,7 @@ phutil_register_library_map(array(
     'Pipe' => 'pipe/Pipe.php',
     'PipeBuiltin' => 'builtin/PipeBuiltin.php',
     'PipeControllerTestCase' => '__tests__/PipeControllerTestCase.php',
+    'PipeDefaults' => 'pipe/PipeDefaults.php',
     'PipelineVisitor' => 'shell/visitor/PipelineVisitor.php',
     'Process' => 'shell/Process.php',
     'ProcessIDWrapper' => 'shell/ProcessIDWrapper.php',

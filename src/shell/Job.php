@@ -117,7 +117,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     $pipe_prev = $stdin;
     $pipe_next = null;
     
-    omni_trace("starting job execution");
+    omni_trace("starting job execution: ".$this->getCommand());
   
     $this->temporaryPipes = array();
     $this->temporaryPipes[] = $stdin;
@@ -236,11 +236,11 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       $shell->putProcessInProcessGroupIfInteractive($this, $process->getProcessID());
     }
     
-    omni_trace("scheduling job");
+    omni_trace("scheduling job: ".$this->getCommand());
     
     $shell->scheduleJob($this);
     
-    omni_trace("job execution complete");
+    omni_trace("job execution complete: ".$this->getCommand());
   }
 
 }

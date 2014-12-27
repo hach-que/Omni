@@ -3,3 +3,7 @@
 $var = hello
 echo $var
 
+sleep 10 &
+
+job
+

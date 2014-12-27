@@ -28,6 +28,11 @@ $result = $args->parsePartial(
       'help'     => 'Print the AST for the specified command.',
     ),
     array(
+      'name'     => 'ast-script',
+      'param'    => 'ast',
+      'help'     => 'Print the AST for the specified script file.',
+    ),
+    array(
       'name'     => 'simulate-interactive',
       'help'     => 'Simulate commands being typed at the interactive prompt.',
     ),
@@ -48,6 +53,17 @@ omni_trace("starting");
 
 if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));
+  print_r($result);
+  if ($result === false) {
+    echo omnilang_get_error()."\n";
+    omni_exit(1);
+  } else {
+    omni_exit(0);
+  }
+}
+
+if ($args->getArg('ast-script')) {
+  $result = omnilang_parse(file_get_contents($args->getArg('ast-script')));
   print_r($result);
   if ($result === false) {
     echo omnilang_get_error()."\n";

@@ -14,6 +14,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $variables = array();
   private $builtins;
   private $isExiting;
+  private $jobsToKillPipesOnExit = array();
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
@@ -185,12 +186,117 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       fd_close($errFD);
     }
     
+    // Ensure we have absolutely no other file descriptors
+    // present when launching the process.
+    FileDescriptorManager::closeAll();
+    
     $path = array_shift($argv);
     
     if (@pcntl_exec($path, $argv) === false) {
       omni_trace("error: $path: ".pcntl_strerror(pcntl_get_last_error())."\n");
       omni_exit(1);
     }
+  }
+  
+  public function launchScript(
+    Job $job,
+    $script_path,
+    array $argv,
+    Endpoint $stdin,
+    Endpoint $stdout,
+    Endpoint $stderr) {
+    
+    omni_trace("launching script $script_path");
+    
+    omni_trace("preparing forked process");
+    
+    $this->prepareForkedProcess($job);
+    
+    omni_trace("closing standard input");
+    
+    fd_close(0);
+    
+    omni_trace("resetting shell state");
+    
+    $this->shellProcessGroupID = null;
+    $this->tmodes = null;
+    $this->terminal = null;
+    $this->isInteractive = null;
+    $this->jobs = array();
+    $this->variables = array();
+    // Do not reset $builtins; we keep this so we don't
+    // need to reload it.
+    $this->isExiting = false;
+    
+    omni_trace("reinitializing shell");
+    
+    $this->initialize();
+    
+    omni_trace("preparing variables");
+    
+    $this->variables['stdin'] = $stdin;
+    $this->variables['stdout'] = $stdout;
+    $this->variables['stderr'] = $stderr;
+    for ($i = 0; $i < count($argv); $i++) {
+      $this->variables[$i] = $argv;
+    }
+    
+    omni_trace("loading file contents");
+    
+    $trap = new PhutilErrorTrap();
+    $script = @file_get_contents($script_path);
+    $err = $trap->getErrorsAsString();
+    $trap->destroy();
+    if ($script === false) {
+      $stderr->write(new Exception('failed to read script file: '.$err));
+      omni_exit(1);
+    }
+    
+    omni_trace("start parse");
+    
+    $results = omnilang_parse($script);
+    
+    if ($results === false) {
+      $stderr->write(omnilang_get_error());
+      omni_trace("execute failed due to parse error: ".omnilang_get_error());
+      omni_exit(1);
+    } else {
+      omni_trace("visit nodes with result");
+      
+      try {
+        id(new RootVisitor())->visit($this, $results);
+        
+        omni_trace("killing remaining pipes for background jobs");
+        
+        // Kill any open pipes that might be still around for
+        // background jobs, because we don't want to leave any
+        // file descriptors open.
+        foreach ($this->jobsToKillPipesOnExit as $job) {
+          omni_trace("killing pipes for ".$job->getCommand());
+        
+          foreach ($job->getProcesses() as $process) {
+            if (!$process->hasProcessID()) {
+              continue;
+            }
+            
+            omni_trace("evaluating ".$process->getProcessType());
+          
+            if ($process->getProcessType() === 'pipe') {
+              omni_trace("sending SIGKILL to ".$process->getProcessID());
+            
+              posix_kill($process->getProcessID(), SIGKILL);
+            }
+          }
+        }
+      } catch (Exception $ex) {
+        $stderr->write($ex);
+        omni_exit(1);
+      }
+      
+      omni_trace("execute complete");
+    }
+    
+    omni_exit(0);
   }
   
   
@@ -207,13 +313,47 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   public function scheduleJob(Job $job) {
     if (!$this->isInteractive) {
-      $this->jobs[$this->shellProcessGroupID] = $job;
+      if ($job->isForeground()) {
+        $this->jobs[$this->shellProcessGroupID] = $job;
+      }
     } else {
       $this->jobs[$job->getProcessGroupIDOrAssert()] = $job;
     }
   
     if (!$this->isInteractive) {
-      $this->waitForJob($job);
+      if ($job->isForeground()) {
+        omni_trace("waiting on job because it's in the foreground");
+        $this->waitForJob($job);
+      } else {
+        // TODO We currently ignore this job and let it run in the
+        // background, because we have absolutely no form of job
+        // control when running non-interactively.  Even bash
+        // exhibits this behaviour (jobs started with & when
+        // non-interactive do not have their own process group ID
+        // on which to wait).
+        //
+        // In reality, I'd like Omni to be able to handle this
+        // scenario in non-interactive mode, so one possibility
+        // here is to use cgroups (via the systemd API) to group
+        // jobs.  This would allow us to then wait on jobs ("rejoin")
+        // by waiting for all processes in the cgroup to exit.
+        omni_trace("unable to track job using job control");
+        foreach ($job->getProcesses() as $process) {
+          if ($process->hasProcessID()) {
+            omni_trace("moving ".$process->getProcessID()." into process group 0");
+            posix_setpgid($process->getProcessID(), 0);
+          }
+        }
+        
+        // Even though we're ignoring this job and not performing
+        // proper background / job control, we need to SIGKILL any
+        // processes in the job that are pipes, because otherwise any
+        // parent process of Omni may wait due to file descriptors
+        // remaining open (because the background job's pipes are
+        // connected to the parent Omni shell's pipes).
+        omni_trace("adding ".$job->getCommand()." to list of jobs to kill pipes");
+        $this->jobsToKillPipesOnExit[] = $job;
+      }
     } else if ($job->isForeground()) {
       $this->putJobInForeground($job, false);
     } else {
@@ -342,6 +482,16 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $pid = null;
     
     do {
+      omni_trace($job->getCommand()." has ".count($job->getProcesses())." processes");
+      omni_trace("completed / stopped so far:");
+      foreach ($job->getProcesses() as $process) {
+        if (!$process->isCompleted() && !$process->isStopped()) {
+          omni_trace(" [ ] ".$process->getProcessID().": ".$process->getProcessDescription());
+        } else {
+          omni_trace(" [X] ".$process->getProcessID().": ".$process->getProcessDescription());
+        }
+      }
+      
       omni_trace("waiting on any child pid");
       $pid = pcntl_waitpid(-1, $status, WUNTRACED);
       omni_trace("got signal for $pid: $status");

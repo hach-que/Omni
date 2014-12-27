@@ -36,9 +36,6 @@ final class NativeLaunchable
   }
   
   public function launch(Shell $shell, Job $job, array $prepare_data) {
-    // Once the native executables start to launch, you can't modify the pipeline (e.g.
-    // adding endpoints) because all of the pipe controllers have already started.
-    
     $stdin = idx($prepare_data, 'stdin_pipe');
     $stdout = idx($prepare_data, 'stdout_pipe');
     $stderr = idx($prepare_data, 'stderr_pipe');
