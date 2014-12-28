@@ -27,10 +27,10 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
 /* -(  Shell Initialization  )----------------------------------------------- */
   
   
-  public function initialize() {
+  public function initialize($force_noninteractive = false) {
     // Check if we are running interactively.
     $this->terminal = self::STDIN_FILENO;
-    $this->isInteractive = posix_isatty($this->terminal);
+    $this->isInteractive = posix_isatty($this->terminal) && !$force_noninteractive;
     
     if ($this->isInteractive) {
       omni_trace("ensuring foreground control");
@@ -212,10 +212,6 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     
     $this->prepareForkedProcess($job);
     
-    omni_trace("closing standard input");
-    
-    fd_close(0);
-    
     omni_trace("resetting shell state");
     
     $this->shellProcessGroupID = null;
@@ -228,9 +224,9 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     // need to reload it.
     $this->isExiting = false;
     
-    omni_trace("reinitializing shell");
+    omni_trace("reinitializing shell in non-interactive mode");
     
-    $this->initialize();
+    $this->initialize(true);
     
     omni_trace("preparing variables");
     
@@ -566,25 +562,31 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   
   public function execute($input) {
-    omni_trace("start parse");
-    
-    $results = omnilang_parse($input);
-    
-    if ($results === false) {
-      echo omnilang_get_error()."\n";
-      omni_trace("execute failed due to parse error: ".omnilang_get_error());
-    } else {
-      omni_trace("visit nodes with result");
+    $stderr = $this->createInternalStderrEndpoint();
+  
+    try {
+      omni_trace("start parse");
       
-      id(new RootVisitor())->visit($this, $results);
+      $results = omnilang_parse($input);
       
-      omni_trace("execute complete");
-      
-      omni_trace("before doJobNotification");
-      
-      $this->doJobNotification();
-      
-      omni_trace("after doJobNotification");
+      if ($results === false) {
+        omni_trace("execute failed due to parse error: ".omnilang_get_error());
+        throw new Exception(omnilang_get_error());
+      } else {
+        omni_trace("visit nodes with result");
+        
+        id(new RootVisitor())->visit($this, $results);
+        
+        omni_trace("execute complete");
+        
+        omni_trace("before doJobNotification");
+        
+        $this->doJobNotification();
+        
+        omni_trace("after doJobNotification");
+      }
+    } catch (Exception $ex) {
+      $stderr->write($ex);
     }
   }
   

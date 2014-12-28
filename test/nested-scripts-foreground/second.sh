@@ -1,9 +1,6 @@
 #!/home/james/Projects/Omni/omni/bin/omni
 
-$var = hello
-echo $var
-
-sleep 10 &
-
-job
+echo "b: fg"
+sleep 2
+echo "b: end"
 
