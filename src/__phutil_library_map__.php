@@ -51,6 +51,7 @@ phutil_register_library_map(array(
     'PipeDefaults' => 'pipe/PipeDefaults.php',
     'PipelineVisitor' => 'shell/visitor/PipelineVisitor.php',
     'Process' => 'shell/Process.php',
+    'ProcessAwareException' => 'pipe/ProcessAwareException.php',
     'ProcessIDWrapper' => 'shell/ProcessIDWrapper.php',
     'ProcessInterface' => 'shell/ProcessInterface.php',
     'ProcessLegacy' => 'shell/ProcessLegacy.php',
@@ -124,6 +125,7 @@ phutil_register_library_map(array(
       'LaunchableInterface',
       'ProcessInterface',
     ),
+    'ProcessAwareException' => 'Exception',
     'ProcessIDWrapper' => array(
       'Phobject',
       'ProcessInterface',

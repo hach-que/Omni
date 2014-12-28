@@ -159,6 +159,10 @@ final class Endpoint extends Phobject {
   }
   
   public function write($object) {
+    if ($object instanceof Exception) {
+      $object = $this->handleExceptionWritten($object);
+    }
+  
     $data = null;
     switch ($this->writeFormat) {
       case self::FORMAT_PHP_SERIALIZATION:
@@ -185,6 +189,21 @@ final class Endpoint extends Phobject {
     }
     
     FileDescriptorManager::write($this->getWriteFD(), $data);
+  }
+  
+  /**
+   * We modify and / or wrap exceptions to keep track of all of the
+   * processes that it passes through.  This is because the exception
+   * will be written by the outer-most instance of Omni, but may occur in
+   * a nested process.
+   */
+  private function handleExceptionWritten(Exception $ex) {
+    if (!($ex instanceof ProcessAwareException)) {
+      $ex = new ProcessAwareException($ex);
+    }
+    
+    $ex->addProcessTrace("written to endpoint from PID ".posix_getpid());
+    return $ex;
   }
   
   private function lengthPrefix($data) {

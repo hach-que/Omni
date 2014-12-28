@@ -10,6 +10,10 @@
 final class UserFriendlyFormatter extends Phobject {
 
   public function get($object) {
+    if ($object instanceof Exception) {
+      return $this->getException($object);
+    }
+    
     try {
       assert_stringlike($object);
       if (is_bool($object)) {
@@ -32,6 +36,17 @@ final class UserFriendlyFormatter extends Phobject {
         return "Unknown object received for output (has type ".gettype($object).")";
       }
     }
+  }
+  
+  private function getException(Exception $ex) {
+    if ($ex instanceof ProcessAwareException) {
+      $process_trace = implode("\n", $ex->getProcessTrace());
+      $ex = $ex->getOriginal();
+    } else {
+      $process_trace = '<originates in current process '.posix_getpid().'>';
+    }
+    
+    return "\x1B[1m\x1B[31m".(string)$ex."\nProcess trace:\n$process_trace\n\x1B[0m";
   }
   
   private function getResource($resource) {
