@@ -1,41 +1,39 @@
 <?php
 
 final class FunctionalTestCase extends PhutilTestCase {
+  
+  public function testArgumentsString1() {
+    $this->runFunctionalTest('arguments-string-1', array('asdf'));
+  }
+  
+  public function testArgumentsNumeric1() {
+    $this->runFunctionalTest('arguments-numeric-1', array('123'));
+  }
 
   public function testNestedScriptsBackground() {
-    $expect = <<<EOF
-a: bg
-b: bg
-b: fg
-b: end
-a: fg
-b: bg
-b: fg
-b: end
-a: end
-EOF;
-    $this->runFunctionalTest('nested-scripts-background', $expect);
+    $this->runFunctionalTest('nested-scripts-background');
   }
   
   public function testNestedScriptsForeground() {
-    $expect = <<<EOF
-a: fg
-b: fg
-b: end
-a: end
-EOF;
-    $this->runFunctionalTest('nested-scripts-foreground', $expect);
+    $this->runFunctionalTest('nested-scripts-foreground');
   }
   
-  private function runFunctionalTest($name, $expect) {
+  private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;
   
-    list($err, $stdout, $stderr) = id(new ExecFuture('%C ./run.sh', $omni))
+    if ($args === null) {
+      $args = array();
+    }
+    
+    $expect = file_get_contents(
+      phutil_get_library_root('omni').'/../test/'.$name.'/expected');
+  
+    list($err, $stdout, $stderr) = id(new ExecFuture('%C ./run.sh %Ls', $omni, $args))
       ->setCWD($cwd)
       ->resolve();
     $this->assertEqual(0, $err);
-    $this->assertEqual($stdout, $expect."\n");
+    $this->assertEqual($stdout, $expect);
   }
   
 }

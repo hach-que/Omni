@@ -233,8 +233,9 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $this->variables['stdin'] = $stdin;
     $this->variables['stdout'] = $stdout;
     $this->variables['stderr'] = $stderr;
+    $this->variables[0] = $script_path;
     for ($i = 0; $i < count($argv); $i++) {
-      $this->variables[$i] = $argv;
+      $this->variables[$i + 1] = $argv[$i];
     }
     
     omni_trace("loading file contents");

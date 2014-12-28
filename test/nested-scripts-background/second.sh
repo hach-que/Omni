@@ -1,8 +1,8 @@
-#!/home/james/Projects/Omni/omni/bin/omni
+#!/bin/omni
 
 echo "b: bg"
-sleep 5 &
+usleep 50000 &
 echo "b: fg"
-sleep 2
+usleep 10000
 echo "b: end"
 

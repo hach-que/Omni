@@ -1,6 +1,6 @@
-#!/home/james/Projects/Omni/omni/bin/omni
+#!/bin/omni
 
 echo "b: fg"
-sleep 2
+usleep 10000
 echo "b: end"
 

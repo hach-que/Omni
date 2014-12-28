@@ -5,6 +5,7 @@ final class Process
   implements LaunchableInterface, ProcessInterface {
 
   private $arguments;
+  private $originalArguments;
   private $pid;
   private $status;
   private $stopped;
@@ -12,8 +13,9 @@ final class Process
   private $type;
   private $description;
   
-  public function __construct(array $argv) {
+  public function __construct(array $argv, $original_argv) {
     $this->arguments = $argv;
+    $this->originalArguments = $original_argv;
   }
   
   public function hasProcessID() {
@@ -61,7 +63,7 @@ final class Process
     $resolved_executable = Filesystem::resolveBinary($executable);
     $is_native = false;
     
-    $this->description = trim($resolved_executable.' '.implode(' ', $this->arguments));
+    $this->description = trim($resolved_executable.' '.$this->originalArguments);
     
     if ($shell->isKnownBuiltin($executable)) {
       $builtin = $shell->lookupBuiltin($executable);

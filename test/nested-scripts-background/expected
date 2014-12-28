@@ -1,0 +1,9 @@
+a: bg
+b: bg
+b: fg
+b: end
+a: fg
+b: bg
+b: fg
+b: end
+a: end
