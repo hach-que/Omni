@@ -15,8 +15,7 @@ class Pipe extends Phobject {
   private $roundRobinCounter = 0;
   private $defaultInboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   private $defaultOutboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
-  private $hasPreviouslyHadInboundEndpoints = false;
-  private $hasPreviouslyHadOutboundEndpoints = false;
+  private $isFinalized = false;
   private $objectsPendingConnectionOfOutboundEndpoints = array();
   private $shell = null;
   private $job = null;
@@ -84,9 +83,10 @@ class Pipe extends Phobject {
     $this->startControllerIfNotRunning();
     
     if ($this->controllerPid === posix_getpid()) {
-      $this->hasPreviouslyHadInboundEndpoints = true;
-      $this->hasPreviouslyHadOutboundEndpoints = true;
+      $this->isFinalized = true;
+      omni_trace("pipe is now finalized");
     } else {
+      omni_trace("marking pipe as finalized");
       $this->dispatchControlSelfCallEvent(__FUNCTION__);
     }
     
@@ -400,10 +400,8 @@ class Pipe extends Phobject {
         // doesn't use remoting.
         if ($call['endpoint-type'] === 'inbound') {
           $this->inboundEndpoints[$call['index']] = $endpoint;
-          $this->hasPreviouslyHadInboundEndpoints = true;
         } else {
           $this->outboundEndpoints[$call['index']] = $endpoint;
-          $this->hasPreviouslyHadOutboundEndpoints = true;
           $this->sendPendingObjects();
         }
         break;
@@ -566,7 +564,7 @@ class Pipe extends Phobject {
     }
     
     if ($real_inbound_endpoints === 0) {
-      if ($this->hasPreviouslyHadInboundEndpoints) {
+      if ($this->isFinalized) {
         // No further update() calls will result in more activity.
         omni_trace(
           "no inbound endpoints, terminating");
@@ -575,7 +573,7 @@ class Pipe extends Phobject {
     }
     
     if (count($outbound_fds) === 0) {
-      if ($this->hasPreviouslyHadOutboundEndpoints) {
+      if ($this->isFinalized) {
         // No further update() calls will result in more activity.
         omni_trace(
           "no outbound endpoints, terminating");
