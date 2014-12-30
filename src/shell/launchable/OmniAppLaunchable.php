@@ -12,7 +12,7 @@ final class OmniAppLaunchable
     $this->argv = $argv;
   }
   
-  public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
     $stdin_endpoint = $stdin->createOutboundEndpoint(
       Endpoint::FORMAT_PHP_SERIALIZATION,
       $this->executable." stdin");

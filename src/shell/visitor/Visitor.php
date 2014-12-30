@@ -20,6 +20,7 @@ abstract class Visitor {
       'assignment' => 'AssignmentVisitor',
       'command' => 'CommandVisitor',
       'double_quoted' => 'DoubleQuotedVisitor',
+      'expression' => 'ExpressionVisitor',
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
       'number' => 'NumberVisitor',

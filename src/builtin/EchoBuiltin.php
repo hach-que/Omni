@@ -1,9 +1,9 @@
 <?php
 
-final class ExitBuiltin extends Builtin {
+final class EchoBuiltin extends Builtin {
 
   public function getName() {
-    return 'exit';
+    return 'echo';
   }
   
   public function prepare(
@@ -14,24 +14,36 @@ final class ExitBuiltin extends Builtin {
     PipeInterface $stdout,
     PipeInterface $stderr) {
     
-    return array();
+    return array(
+      'stdout' => $stdout->createInboundEndpoint(null, "echo stdout"),
+    );
   }
-    
+  
   public function getArguments(
     Shell $shell,
     Job $job,
     array $prepare_data) {
     
-    return null;
+    return array();
   }
-
+  
   public function run(
     Shell $shell,
     Job $job, 
     array $arguments, 
     array $prepare_data) {
     
-    $shell->requestExit();
+    $stdout = idx($prepare_data, 'stdout');
+    
+    if (count($arguments) === 1) {
+      $stdout->write("\n");
+    }
+    
+    for ($i = 1; $i < count($arguments); $i++) {
+      $stdout->write($arguments[$i]);
+    }
+    
+    $stdout->closeWrite();
   }
 
 }

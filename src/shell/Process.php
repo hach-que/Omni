@@ -58,8 +58,25 @@ final class Process
     return $this->completed = $completed;
   }
   
-  public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function useInProcessPipes(Shell $shell) {
+    $executable = $this->arguments[0];
+    if ($shell->isKnownBuiltin($executable)) {
+      $builtin = $shell->lookupBuiltin($executable);
+      if ($builtin->useInProcessPipes()) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
     $executable = array_shift($this->arguments);
+    
+    if (!is_string($executable)) {
+      throw new Exception('Executable name must be a string, did you mean to use \'echo\'?');
+    }
+    
     $resolved_executable = Filesystem::resolveBinary($executable);
     $is_native = false;
     

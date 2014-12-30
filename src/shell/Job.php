@@ -104,8 +104,10 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   }
   
   public function killTemporaryPipes() {
-    foreach ($this->temporaryPipes as $pipe) {
-      $pipe->killController();
+    if ($this->temporaryPipes !== null) {
+      foreach ($this->temporaryPipes as $pipe) {
+        $pipe->killController();
+      }
     }
   }
   
@@ -113,7 +115,12 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     $this->temporaryPipes = null;
   }
   
-  public function execute(Shell $shell, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function execute(
+    Shell $shell,
+    PipeInterface $stdin,
+    PipeInterface $stdout,
+    PipeInterface $stderr) {
+    
     $pipe_prev = $stdin;
     $pipe_next = null;
     
@@ -174,7 +181,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       // keep the standard input controller running (even when it should exit).
       $pipe->markFinalized();
       
-      $process = $pipe->getControllerProcess($shell, $this);
+      $process = $pipe->getControllerProcess(true);
       if ($process !== null) {
         $this->processes[] = $process;
       }

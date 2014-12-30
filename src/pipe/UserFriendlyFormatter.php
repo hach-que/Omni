@@ -9,36 +9,36 @@
  */
 final class UserFriendlyFormatter extends Phobject {
 
-  public function get($object) {
+  public function get($object, $prefix = '') {
     if ($object instanceof Exception) {
-      return $this->getException($object);
+      return $this->getException($object, $prefix);
     }
     
     try {
       assert_stringlike($object);
       if (is_bool($object)) {
         if ($object) {
-          return 'true';
+          return $this->indent('true', $prefix);
         } else {
-          return 'false';
+          return $this->indent('false', $prefix);
         } 
       } else {
-        return (string)$object;
+        return $this->indent((string)$object, $prefix);
       }
     } catch (Exception $e) {
       if (is_array($object)) {
-        return $this->getArray($object);
+        return $this->getArray($object, $prefix);
       } else if (is_resource($object)) {
-        return $this->getResource($object);
+        return $this->getResource($object, $prefix);
       } else if (is_object($object)) {
-        return $this->getObject($object);
+        return $this->getObject($object, $prefix);
       } else {
         return "Unknown object received for output (has type ".gettype($object).")";
       }
     }
   }
   
-  private function getException(Exception $ex) {
+  private function getException(Exception $ex, $prefix) {
     if ($ex instanceof ProcessAwareException) {
       $process_trace = implode("\n", $ex->getProcessTrace());
       $ex = $ex->getOriginal();
@@ -46,20 +46,24 @@ final class UserFriendlyFormatter extends Phobject {
       $process_trace = '<originates in current process '.posix_getpid().'>';
     }
     
-    return "\x1B[1m\x1B[31m".(string)$ex."\nProcess trace:\n$process_trace\n\x1B[0m";
+    return $this->indent(
+      "\x1B[1m\x1B[31m".
+      (string)$ex.
+      "\nProcess trace:\n$process_trace\n\x1B[0m",
+      $prefix);
   }
   
-  private function getResource($resource) {
-    return get_resource_type($resource)."\n";
+  private function getResource($resource, $prefix) {
+    return $this->indent(get_resource_type($resource)."\n", $prefix);
   }
   
-  private function getArray($array) {
+  private function getArray($array, $prefix) {
     if ($this->arrayHasAllNumericKeys($array)) {
       $content = '';
       foreach ($array as $k => $v) {
-        $content .= $this->get($v)."\n";
+        $content .= $this->get($v, $this->incPrefix($prefix))."\n";
       }
-      return $content;
+      return $this->indent($content, $prefix);
     }
     
     if (count($array) > 10) {
@@ -67,12 +71,15 @@ final class UserFriendlyFormatter extends Phobject {
       // as a list (so that we don't render massive tables).
       $content = '';
       foreach ($array as $k => $v) {
-        $content .= $this->get($k)." = ".$this->get($v)."\n";
+        $content .= 
+          $this->get($k, $this->incPrefix($prefix)).
+          " = ".
+          $this->get($v, $this->incPrefix($prefix))."\n";
       }
-      return $content;
+      return $this->indent($content, $prefix);
     }
     
-    return $this->getFields($array);
+    return $this->getFields($array, $prefix);
   }
   
   private function arrayHasAllNumericKeys(array $array) {
@@ -85,7 +92,7 @@ final class UserFriendlyFormatter extends Phobject {
     return true;
   }
   
-  private function getObject($object) {
+  private function getObject($object, $prefix) {
     $reflection = new ReflectionClass($object);
     $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
     $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
@@ -158,10 +165,10 @@ final class UserFriendlyFormatter extends Phobject {
       }
     }
     
-    return $this->getFields($array, true);
+    return $this->getFields($array, $prefix, true);
   }
   
-  private function getFields($fields, $values_have_writable_flag = false) {
+  private function getFields($fields, $prefix, $values_have_writable_flag = false) {
     $max_key_length = 0;
     foreach ($fields as $key => $value) {
       $key_string = (string)$key;
@@ -183,14 +190,33 @@ final class UserFriendlyFormatter extends Phobject {
         if ($value['writable']) {
           $w = ' w ';
         }
-        $content .= $key_string.$w.': '.$this->get($value['value'])."\n";
+        $content .= $key_string.$w.': '.$this->get($value['value'], $this->incPrefix($prefix))."\n";
       } else {
-        $content .= $key_string.': '.$this->get($value)."\n";
+        $content .= $key_string.': '.$this->get($value, $this->incPrefix($prefix))."\n";
       }
     }
   
-    $content .= "\n";
-    return $content;
+    if ($prefix === '') {
+      $content .= "\n";
+    }
+    
+    return $this->indent($content, $prefix);
+  }
+  
+  private function indent($string, $prefix) {
+    $parts = explode("\n", $string);
+    for ($i = 0; $i < count($parts); $i++) {
+      if ($i !== 0) {
+        if ($i < count($parts) - 1 || $parts[$i] !== '') {
+          $parts[$i] = $prefix.$parts[$i];
+        }
+      }
+    }
+    return implode("\n", $parts);
+  }
+  
+  private function incPrefix($prefix) {
+    return '  | '.$prefix;
   }
   
 }

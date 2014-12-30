@@ -10,9 +10,9 @@ final class ListDirectoryBuiltin extends Builtin {
     Shell $shell,
     Job $job,
     array $arguments,
-    Pipe $stdin,
-    Pipe $stdout,
-    Pipe $stderr) {
+    PipeInterface $stdin,
+    PipeInterface $stdout,
+    PipeInterface $stderr) {
     
     return array(
       'stdout' => $stdout->createInboundEndpoint(null, "ls stdout"),

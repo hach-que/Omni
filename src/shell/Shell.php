@@ -15,6 +15,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $builtins;
   private $isExiting;
   private $jobsToKillPipesOnExit = array();
+  private $explicitPipes = array();
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
@@ -223,6 +224,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     // Do not reset $builtins; we keep this so we don't
     // need to reload it.
     $this->isExiting = false;
+    $this->jobsToKillPipesOnExit = array();
+    $this->explicitPipes = array();
     
     omni_trace("reinitializing shell in non-interactive mode");
     
@@ -407,6 +410,16 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   private function markProcessStatus($pid, $status) {
     if ($pid > 0) {
+      // Update any explicitly registered pipes.
+      foreach ($this->explicitPipes as $pipe) {
+        $process = $pipe->getControllerProcess();
+        if ($process !== null && $process->getProcessID() === $pid) {
+          if (!pcntl_wifstopped($status)) {
+            $pipe->receivedTerminateSignalFromShell();
+          }
+        }
+      }
+    
       // Update the record for the process.
       foreach ($this->jobs as $job) {
         foreach ($job->getProcesses() as $process) {
@@ -703,4 +716,14 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   public function getVariable($key) {
     return idx($this->variables, $key, null);
   }
+  
+  
+/* -(  Pipes  )----------------------------------------------------------- */
+  
+  
+  public function registerExplicitPipe(Pipe $pipe) {
+    $this->explicitPipes[] = $pipe;
+  }
+  
+  
 }

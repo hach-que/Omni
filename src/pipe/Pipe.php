@@ -1,6 +1,6 @@
 <?php
 
-class Pipe extends Phobject {
+class Pipe extends Phobject implements PipeInterface {
 
   const DIST_METHOD_ROUND_ROBIN = 'round-robin';
   const DIST_METHOD_SPLIT = 'split';
@@ -93,10 +93,20 @@ class Pipe extends Phobject {
     return $this;
   }
   
-  public function getControllerProcess() {
-    $this->startControllerIfNotRunning();
+  public function isRunning() {
+    return $this->controllerPid !== null;
+  }
+  
+  public function getControllerProcess($start_if_not_started = false) {
+    if ($start_if_not_started) {
+      $this->startControllerIfNotRunning();
+    }
     
-    return new ProcessIDWrapper($this->controllerPid, 'pipe', $this->getName());
+    if ($this->controllerPid !== null) {
+      return new ProcessIDWrapper($this->controllerPid, 'pipe', $this->getName());
+    } else {
+      return null;
+    }
   }
   
   /**
@@ -530,6 +540,10 @@ class Pipe extends Phobject {
       posix_kill($this->controllerPid, SIGKILL);
       $this->controllerPid = null;
     }
+  }
+  
+  public function receivedTerminateSignalFromShell() {
+    $this->controllerPid = null;
   }
   
   /**

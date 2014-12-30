@@ -13,7 +13,7 @@ final class BuiltinLaunchable
     array_unshift($this->arguments, $this->builtin->getName());
   }
   
-  public function prepare(Shell $shell, Job $job, Pipe $stdin, Pipe $stdout, Pipe $stderr) {
+  public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
     return $this->builtin->prepare($shell, $job, $this->arguments, $stdin, $stdout, $stderr);
   }
   

@@ -11,17 +11,35 @@ final class PipelineVisitor extends Visitor {
       $job->addStage($this->visitChild($shell, $child));
     }
     
+    $requires_inprocess_pipes = false;
+    if ($data['data'] === 'expression') {
+      omni_trace("check for in-process pipes");
+      
+      foreach ($job->getStages() as $stage) {
+        if ($stage instanceof Process && $stage->useInProcessPipes($shell)) {
+          if (count($job->getStages()) > 1) {
+            throw new Exception($stage->getProcessDescription().' can not be piped');
+          }
+          
+          $requires_inprocess_pipes = true;
+        }
+      }
+    }
+    
     omni_trace("setting up pipes for stdin / stdout / stderr");
     
     $stdin_pipe = new Pipe();
-    $stdout_pipe = new Pipe();
+    $stdout_pipe = $requires_inprocess_pipes ? id(new InProcessPipe()) : id(new Pipe());
     $stderr_pipe = new Pipe();
     
     try {
-      $stdout_pipe->attachStdoutEndpoint(PipeDefaults::$stdoutFormat);
-      $stderr_pipe->attachStderrEndpoint(PipeDefaults::$stderrFormat);
+      omni_trace("configuring job background / foreground expression before execution");
       
-      omni_trace("configuring job background / foreground before execution");
+      if ($data['data'] !== 'expression') {
+        $stdout_pipe->attachStdoutEndpoint(PipeDefaults::$stdoutFormat);
+      }
+      
+      $stderr_pipe->attachStderrEndpoint(PipeDefaults::$stderrFormat);
       
       if ($data['data'] === 'foreground') {
         $job->setForeground(true);
@@ -38,8 +56,15 @@ final class PipelineVisitor extends Visitor {
         
       } elseif ($data['data'] === 'background') {
         $job->setForeground(false);
+      } elseif ($data['data'] === 'expression') {
+        $job->setForeground(true);
+        
+        // For expressions, we have to create an endpoint which we can later
+        // read objects from.
+        $capture_endpoint = $stdout_pipe->createOutboundEndpoint(PipeDefaults::$stdoutFormat);
+        
       } else {
-        throw new Exception('Unknown type of job in pipeline');
+        throw new Exception('Unknown type of job in pipeline '.print_r($data, true));
       }
       
       omni_trace("executing job");
@@ -63,9 +88,31 @@ final class PipelineVisitor extends Visitor {
     
     $job->untrackTemporaryPipes();
     
-    omni_trace("returning new job object");
-    
-    return $job;
+    if ($data['data'] === 'expression') {
+      omni_trace("reading data from stdout endpoint for expression pipeline");
+      
+      $result = array();
+      while (true) {
+        try {
+          $result[] = $capture_endpoint->read();
+        } catch (NativePipeClosedException $ex) {
+          break;
+        }
+      }
+      
+      omni_trace("returning result of stdout from pipeline");
+      
+      if (count($result) === 0) {
+        return null;
+      } else if (count($result) === 1) {
+        return $result[0];
+      } else {
+        return $result;
+      }
+    } else {
+      omni_trace("returning new job object");
+      return $job;
+    }
   }
   
 }
