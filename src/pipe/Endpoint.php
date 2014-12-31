@@ -162,7 +162,7 @@ final class Endpoint extends Phobject {
     if ($object instanceof Exception) {
       $object = $this->handleExceptionWritten($object);
     }
-  
+    
     $data = null;
     switch ($this->writeFormat) {
       case self::FORMAT_PHP_SERIALIZATION:

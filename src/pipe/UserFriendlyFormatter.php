@@ -9,7 +9,9 @@
  */
 final class UserFriendlyFormatter extends Phobject {
 
-  public function get($object, $prefix = '') {
+  public function get($object, $prefix = '', $no_newline = false) {
+    $newline = $no_newline ? '' : "\n";
+    
     if ($object instanceof Exception) {
       return $this->getException($object, $prefix);
     }
@@ -18,12 +20,12 @@ final class UserFriendlyFormatter extends Phobject {
       assert_stringlike($object);
       if (is_bool($object)) {
         if ($object) {
-          return $this->indent('true', $prefix);
+          return $this->indent('true', $prefix).$newline;
         } else {
-          return $this->indent('false', $prefix);
+          return $this->indent('false', $prefix).$newline;
         } 
       } else {
-        return $this->indent((string)$object, $prefix);
+        return $this->indent((string)$object, $prefix).$newline;
       }
     } catch (Exception $e) {
       if (is_array($object)) {
@@ -61,7 +63,7 @@ final class UserFriendlyFormatter extends Phobject {
     if ($this->arrayHasAllNumericKeys($array)) {
       $content = '';
       foreach ($array as $k => $v) {
-        $content .= $this->get($v, $this->incPrefix($prefix))."\n";
+        $content .= $this->get($v, $this->incPrefix($prefix), true)."\n";
       }
       return $this->indent($content, $prefix);
     }
@@ -72,9 +74,9 @@ final class UserFriendlyFormatter extends Phobject {
       $content = '';
       foreach ($array as $k => $v) {
         $content .= 
-          $this->get($k, $this->incPrefix($prefix)).
+          $this->get($k, $this->incPrefix($prefix), true).
           " = ".
-          $this->get($v, $this->incPrefix($prefix))."\n";
+          $this->get($v, $this->incPrefix($prefix), true)."\n";
       }
       return $this->indent($content, $prefix);
     }
@@ -92,7 +94,7 @@ final class UserFriendlyFormatter extends Phobject {
     return true;
   }
   
-  private function getObject($object, $prefix) {
+  public static function getObjectPropertiesAndMethods($object) {
     $reflection = new ReflectionClass($object);
     $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
     $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
@@ -103,6 +105,8 @@ final class UserFriendlyFormatter extends Phobject {
       $array[$property->getName()] = array(
         'writable' => false,
         'value' => $property->getValue(),
+        'php-type' => 'property',
+        'php-name' => $property->getName(),
       );
     }
     foreach ($methods as $name => $method) {
@@ -118,6 +122,9 @@ final class UserFriendlyFormatter extends Phobject {
         $array[$field_name] = array(
           'writable' => idx($methods, 'set'.$field_name),
           'value' => $method->invoke($object),
+          'php-type' => 'method-property',
+          'php-name' => $name,
+          'php-write-name' => 'set'.$field_name,
         );
       } else if (preg_match('/^is[A-Z]/', $name)) {
         if ($method->isStatic()) {
@@ -130,6 +137,8 @@ final class UserFriendlyFormatter extends Phobject {
         $array[$field_name] = array(
           'writable' => idx($methods, 'set'.substr($name, 2)),
           'value' => $method->invoke($object),
+          'php-type' => 'method-property',
+          'php-name' => $name,
         );
       } else if (preg_match('/^set[A-Z]/', $name)) {
         // Represented as a property.
@@ -161,9 +170,17 @@ final class UserFriendlyFormatter extends Phobject {
         $array[$field_name] = array(
           'writable' => false,
           'value' => '('.implode(', ', $parameter_strs).')',
+          'php-type' => 'method',
+          'php-name' => $name,
         );
       }
     }
+    
+    return $array;
+  }
+  
+  private function getObject($object, $prefix) {
+    $array = self::getObjectPropertiesAndMethods($object);
     
     return $this->getFields($array, $prefix, true);
   }
@@ -190,9 +207,9 @@ final class UserFriendlyFormatter extends Phobject {
         if ($value['writable']) {
           $w = ' w ';
         }
-        $content .= $key_string.$w.': '.$this->get($value['value'], $this->incPrefix($prefix))."\n";
+        $content .= $key_string.$w.': '.$this->get($value['value'], $this->incPrefix($prefix), true)."\n";
       } else {
-        $content .= $key_string.': '.$this->get($value, $this->incPrefix($prefix))."\n";
+        $content .= $key_string.': '.$this->get($value, $this->incPrefix($prefix), true)."\n";
       }
     }
   

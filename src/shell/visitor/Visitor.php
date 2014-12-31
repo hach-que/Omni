@@ -16,6 +16,7 @@ abstract class Visitor {
   
   protected function visitChild(Shell $shell, array $child) {
     $mappings = array(
+      'access' => 'AccessVisitor',
       'arguments' => 'ArgumentsVisitor',
       'assignment' => 'AssignmentVisitor',
       'command' => 'CommandVisitor',
