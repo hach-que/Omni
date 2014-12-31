@@ -5,9 +5,22 @@ final class PipelineVisitor extends Visitor {
   protected function visitImpl(Shell $shell, array $data) {
     omni_trace("constructing job");
     
+    $expression_options = array();
+    
     $job = new Job();
     $job->setCommand($data['original']);
-    foreach ($data['children'] as $child) {
+    for ($i = 0; $i < count($data['children']); $i++) {
+      $child = $data['children'][$i];
+      
+      if ($data['data'] === 'expression') {
+        // In an expression pipeline, the last child is always the
+        // expression options (empty if no options were specified).
+        if ($i === count($data['children']) - 1) {
+          $expression_options = $this->visitChild($shell, $child);
+          continue;
+        }
+      }
+    
       $job->addStage($this->visitChild($shell, $child));
     }
     
@@ -89,25 +102,31 @@ final class PipelineVisitor extends Visitor {
     $job->untrackTemporaryPipes();
     
     if ($data['data'] === 'expression') {
-      omni_trace("reading data from stdout endpoint for expression pipeline");
-      
-      $result = array();
-      while (true) {
-        try {
-          $result[] = $capture_endpoint->read();
-        } catch (NativePipeClosedException $ex) {
-          break;
-        }
-      }
-      
-      omni_trace("returning result of stdout from pipeline");
-      
-      if (count($result) === 0) {
-        return null;
-      } else if (count($result) === 1) {
-        return $result[0];
+      if (idx($expression_options, '?', false) === true) {
+        // The result of the expression capture is the exit code, not the standard output.
+        $capture_endpoint->closeRead();
+        return $job->getExitCode();
       } else {
-        return $result;
+        omni_trace("reading data from stdout endpoint for expression pipeline");
+        
+        $result = array();
+        while (true) {
+          try {
+            $result[] = $capture_endpoint->read();
+          } catch (NativePipeClosedException $ex) {
+            break;
+          }
+        }
+        
+        omni_trace("returning result of stdout from pipeline");
+        
+        if (count($result) === 0) {
+          return null;
+        } else if (count($result) === 1) {
+          return $result[0];
+        } else {
+          return $result;
+        }
       }
     } else {
       omni_trace("returning new job object");

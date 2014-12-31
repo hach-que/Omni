@@ -57,6 +57,7 @@ final class JobBuiltin extends Builtin {
           'status' => $process->getProcessStatus(),
           'stopped?' => $process->isStopped(),
           'completed?' => $process->isCompleted(),
+          'exitCode' => $process->getExitCode(),
         ));
       }
     } else {
@@ -69,6 +70,7 @@ final class JobBuiltin extends Builtin {
           'foreground?' => $job->isForeground(),
           'stopped?' => $job->isStopped(),
           'completed?' => $job->isCompleted(),
+          'exitCode' => $job->getExitCode(),
         ));
       }
     }

@@ -37,6 +37,17 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     return $this->foreground;
   }
   
+  public function getExitCode() {
+    $max = null;
+    foreach ($this->processes as $process) {
+      $value = $process->getExitCode();
+      if ($value !== null && ($max === null || $value > $max)) {
+        $max = $value;
+      }
+    }
+    return $max;
+  }
+  
   public function setTerminalModes($terminal_modes) {
     $this->terminalModes = $terminal_modes;
     return $this;

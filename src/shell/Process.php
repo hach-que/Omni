@@ -12,6 +12,7 @@ final class Process
   private $completed;
   private $type;
   private $description;
+  private $exitCode;
   
   public function __construct(array $argv, $original_argv) {
     $this->arguments = $argv;
@@ -38,6 +39,10 @@ final class Process
     return $this->status;
   }
   
+  public function getExitCode() {
+    return $this->exitCode;
+  }
+  
   public function setProcessStatus($status) {
     $this->status = $status;
   }
@@ -56,6 +61,10 @@ final class Process
   
   public function setCompleted($completed) {
     return $this->completed = $completed;
+  }
+  
+  public function setExitCode($exit_code) {
+    $this->exitCode = $exit_code;
   }
   
   public function useInProcessPipes(Shell $shell) {

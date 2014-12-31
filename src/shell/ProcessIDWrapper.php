@@ -10,6 +10,7 @@ final class ProcessIDWrapper
   private $completed;
   private $type;
   private $description;
+  private $exitCode;
   
   public function __construct($pid, $type, $description) {
     $this->pid = $pid;
@@ -37,6 +38,10 @@ final class ProcessIDWrapper
     return $this->status;
   }
   
+  public function getExitCode() {
+    return $this->exitCode;
+  }
+  
   public function setProcessStatus($status) {
     $this->status = $status;
   }
@@ -55,6 +60,10 @@ final class ProcessIDWrapper
   
   public function setCompleted($completed) {
     return $this->completed = $completed;
+  }
+  
+  public function setExitCode($exit_code) {
+    $this->exitCode = $exit_code;
   }
   
 }

@@ -25,6 +25,8 @@ abstract class Visitor {
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
       'if' => 'IfVisitor',
+      'key_values' => 'KeyValuesVisitor',
+      'key_value' => 'KeyValueVisitor',
       'number' => 'NumberVisitor',
       'pipeline' => 'PipelineVisitor',
       'single_quoted' => 'SingleQuotedVisitor',

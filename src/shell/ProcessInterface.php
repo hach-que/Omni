@@ -12,6 +12,8 @@ interface ProcessInterface {
   
   public function getProcessStatus();
   
+  public function getExitCode();
+  
   public function setProcessStatus($status);
 
   public function isStopped();
@@ -21,5 +23,7 @@ interface ProcessInterface {
   public function setStopped($stopped);
   
   public function setCompleted($completed);
+  
+  public function setExitCode($exit_code);
   
 }

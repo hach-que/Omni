@@ -38,6 +38,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('if-statement-2-multiline');
   }
   
+  public function testCaptureExitCode() {
+    $this->runFunctionalTest('capture-exit-code');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;
