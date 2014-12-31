@@ -1,6 +1,6 @@
 <?php
 
-final class RootVisitor extends Visitor {
+final class StatementsVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
     foreach ($data['children'] as $child) {

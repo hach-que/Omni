@@ -27,7 +27,7 @@ final class ParseSyntaxTestCase extends PhutilTestCase {
     
     foreach ($strings as $str) {
       $result = omnilang_parse($str);
-      $this->assertTrue(is_array($result));
+      $this->assertTrue(is_array($result), $str);
     }
   }
   
@@ -50,8 +50,50 @@ final class ParseSyntaxTestCase extends PhutilTestCase {
     
     foreach ($strings as $str) {
       $result = omnilang_parse($str);
-      $this->assertTrue(is_array($result));
+      $this->assertTrue(is_array($result), $str);
     }
   }
   
+  public function testIfStatements() {
+    $strings = array(
+      "if true { abc }",
+      "if true { abc } else { def }",
+      <<<EOF
+if true {
+  abc
+}
+EOF
+      ,
+      <<<EOF
+if true {
+  abc
+} else {
+  def
+}
+EOF
+      ,
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), $str);
+    }
+  }
+  
+  public function testExpressions() {
+    $strings = array(
+      "(test->abc)",
+      "(test->abc - ghi)",
+      "(\$test->abc - ghi)",
+      "(\$test->\$abc - ghi)",
+      "(\$test->\$abc - \$ghi)",
+      "\$(echo abc)",
+      "\$(echo -)",
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), $str);
+    }
+  }
 }

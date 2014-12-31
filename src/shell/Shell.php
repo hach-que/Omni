@@ -264,7 +264,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       omni_trace("visit nodes with result");
       
       try {
-        id(new RootVisitor())->visit($this, $results);
+        id(new StatementsVisitor())->visit($this, $results);
         
         omni_trace("killing remaining pipes for background jobs");
         
@@ -589,7 +589,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       } else {
         omni_trace("visit nodes with result");
         
-        id(new RootVisitor())->visit($this, $results);
+        id(new StatementsVisitor())->visit($this, $results);
         
         omni_trace("execute complete");
         
@@ -710,11 +710,28 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   
   public function setVariable($key, $value) {
-    $this->variables[$key] = $value;
+    switch ($key) {
+      case 'true':
+      case 'false':
+      case 'null':
+        throw new Exception('You can not set the value of constant $'.$key);
+      default:
+        $this->variables[$key] = $value;
+        break;
+    }
   }
   
   public function getVariable($key) {
-    return idx($this->variables, $key, null);
+    switch ($key) {
+      case 'true':
+        return true;
+      case 'false':
+        return false;
+      case 'null':
+        return null;
+      default:
+        return idx($this->variables, $key, null);
+    }
   }
   
   

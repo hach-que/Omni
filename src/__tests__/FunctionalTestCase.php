@@ -22,6 +22,22 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('new-builtin-1');
   }
   
+  public function testIfStatement1() {
+    $this->runFunctionalTest('if-statement-1');
+  }
+  
+  public function testIfStatement1Multiline() {
+    $this->runFunctionalTest('if-statement-1-multiline');
+  }
+  
+  public function testIfStatement2() {
+    $this->runFunctionalTest('if-statement-2');
+  }
+  
+  public function testIfStatement2Multiline() {
+    $this->runFunctionalTest('if-statement-2-multiline');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

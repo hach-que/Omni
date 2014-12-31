@@ -24,10 +24,11 @@ abstract class Visitor {
       'expression' => 'ExpressionVisitor',
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
+      'if' => 'IfVisitor',
       'number' => 'NumberVisitor',
       'pipeline' => 'PipelineVisitor',
-      'root' => 'RootVisitor',
       'single_quoted' => 'SingleQuotedVisitor',
+      'statements' => 'StatementsVisitor',
       'statement' => 'StatementVisitor',
       'variable' => 'VariableVisitor',
     );
