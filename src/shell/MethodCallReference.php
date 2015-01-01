@@ -19,7 +19,7 @@ final class MethodCallReference extends Phobject {
   }
   
   public function call(array $argv) {
-    call_user_func_array($this->getCallback(), $argv);
+    return call_user_func_array($this->getCallback(), $argv);
   }
 
 }

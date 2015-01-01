@@ -169,4 +169,8 @@ final class StructuredFile extends Phobject {
     return @unlink($this->path);
   }
 
+  public function loadContent() {
+    return file_get_contents($this->path);
+  }
+  
 }
