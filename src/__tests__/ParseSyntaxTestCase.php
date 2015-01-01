@@ -89,6 +89,7 @@ EOF
       "(\$test->\$abc - \$ghi)",
       "\$(echo abc)",
       "\$(echo -)",
+      "(test->abc->ghi)",
     );
     
     foreach ($strings as $str) {
@@ -96,4 +97,52 @@ EOF
       $this->assertTrue(is_array($result), $str);
     }
   }
+  
+  public function testArrays() {
+    $strings = array(
+      "@()",
+      "@(test)",
+      "@(abc => def)",
+      "@(test, test)",
+      "@(test, abc => def)",
+      "@(abc => def, test)",
+      "@(abc => def, abc => def)",
+      "@(test,)",
+      "@(abc => def,)",
+      "@(test, test,)",
+      "@(test, abc => def,)",
+      "@(abc => def, test,)",
+      "@(abc => def, abc => def,)",
+      "@( test , )",
+      "@( abc => def , )",
+      "@( test , test , )",
+      "@( test , abc => def , )",
+      "@( abc => def , test , )",
+      "@( abc => def , abc => def , )",
+      "@(abc\n=>\ndef)",
+      "@(test,\ntest)",
+      "@(test,\nabc\n=>\ndef)",
+      "@(abc\n=>\ndef,\ntest)",
+      "@(abc\n=>\ndef,\nabc\n=>\ndef)",
+      "@(\n)",
+      "@(\ntest\n)",
+      "@(\nabc\n=>\ndef\n)",
+      "@(\ntest,\ntest\n)",
+      "@(\ntest,\nabc\n=>\ndef\n)",
+      "@(\nabc\n=>\ndef,\ntest\n)",
+      "@(\nabc\n=>\ndef,\nabc\n=>\ndef\n)",
+      "@(\ntest\n,\n)",
+      "@(\nabc\n=>\ndef\n,\n)",
+      "@(\ntest\n,\ntest\n,\n)",
+      "@(\ntest\n,\nabc\n=>\ndef\n,\n)",
+      "@(\nabc\n=>\ndef\n,\ntest\n,\n)",
+      "@(\nabc\n=>\ndef\n,\nabc\n=>\ndef\n,\n)",
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), $str);
+    }
+  }
+  
 }

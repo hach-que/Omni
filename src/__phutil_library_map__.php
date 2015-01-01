@@ -11,6 +11,9 @@ phutil_register_library_map(array(
   'class' => array(
     'AccessVisitor' => 'shell/visitor/AccessVisitor.php',
     'ArgumentsVisitor' => 'shell/visitor/ArgumentsVisitor.php',
+    'ArrayDeclVisitor' => 'shell/visitor/ArrayDeclVisitor.php',
+    'ArrayDefVisitor' => 'shell/visitor/ArrayDefVisitor.php',
+    'ArrayElementVisitor' => 'shell/visitor/ArrayElementVisitor.php',
     'AssignmentVisitor' => 'shell/visitor/AssignmentVisitor.php',
     'Builtin' => 'builtin/Builtin.php',
     'BuiltinExitCodeInterface' => 'shell/BuiltinExitCodeInterface.php',
@@ -88,6 +91,9 @@ phutil_register_library_map(array(
   'xmap' => array(
     'AccessVisitor' => 'Visitor',
     'ArgumentsVisitor' => 'Visitor',
+    'ArrayDeclVisitor' => 'Visitor',
+    'ArrayDefVisitor' => 'Visitor',
+    'ArrayElementVisitor' => 'Visitor',
     'AssignmentVisitor' => 'Visitor',
     'Builtin' => 'Phobject',
     'BuiltinLaunchable' => array(

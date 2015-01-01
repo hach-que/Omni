@@ -18,6 +18,9 @@ abstract class Visitor {
     $mappings = array(
       'access' => 'AccessVisitor',
       'arguments' => 'ArgumentsVisitor',
+      'array_decl' => 'ArrayDeclVisitor',
+      'array_def' => 'ArrayDefVisitor',
+      'array_element' => 'ArrayElementVisitor',
       'assignment' => 'AssignmentVisitor',
       'command' => 'CommandVisitor',
       'double_quoted' => 'DoubleQuotedVisitor',
