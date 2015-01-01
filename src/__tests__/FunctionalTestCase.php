@@ -74,6 +74,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('php-expression-2');
   }
   
+  public function testExecFuture1() {
+    $this->runFunctionalTest('exec-future-1');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

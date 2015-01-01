@@ -34,6 +34,7 @@ phutil_register_library_map(array(
     'FragmentVisitor' => 'shell/visitor/FragmentVisitor.php',
     'FragmentsVisitor' => 'shell/visitor/FragmentsVisitor.php',
     'FunctionalTestCase' => '__tests__/FunctionalTestCase.php',
+    'FuturesBuiltin' => 'builtin/FuturesBuiltin.php',
     'HasTerminalModesInterface' => 'shell/HasTerminalModesInterface.php',
     'IfVisitor' => 'shell/visitor/IfVisitor.php',
     'InProcessEndpoint' => 'pipe/inprocess/InProcessEndpoint.php',
@@ -118,6 +119,7 @@ phutil_register_library_map(array(
     'FragmentVisitor' => 'Visitor',
     'FragmentsVisitor' => 'Visitor',
     'FunctionalTestCase' => 'PhutilTestCase',
+    'FuturesBuiltin' => 'Builtin',
     'IfVisitor' => 'Visitor',
     'InProcessEndpoint' => 'Phobject',
     'InProcessPipe' => array(
