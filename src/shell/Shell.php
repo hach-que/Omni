@@ -16,6 +16,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $isExiting;
   private $jobsToKillPipesOnExit = array();
   private $explicitPipes = array();
+  private $lastExitCode = 0;
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
@@ -514,6 +515,10 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       !$this->markProcessStatus($pid, $status) &&
       !$job->isStopped() &&
       !$job->isCompleted());
+    
+    if ($job->isForeground()) {
+      $this->lastExitCode = $job->getExitCode();
+    }
   }
   
   public function formatJobInfo(Job $job, $status) {
@@ -720,6 +725,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       case 'false':
       case 'null':
         throw new Exception('You can not set the value of constant $'.$key);
+      case '?':
+        throw new Exception('The $? variable is read-only');
       default:
         $this->variables[$key] = $value;
         break;
@@ -734,6 +741,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
         return false;
       case 'null':
         return null;
+      case '?':
+        return $this->lastExitCode;
       default:
         return idx($this->variables, $key, null);
     }

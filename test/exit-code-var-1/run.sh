@@ -1,0 +1,5 @@
+#!/bin/omni
+
+false
+echo $?
+
