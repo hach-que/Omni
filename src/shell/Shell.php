@@ -208,7 +208,48 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     Endpoint $stdout,
     Endpoint $stderr) {
     
-    omni_trace("launching script $script_path");
+    $this->launchScriptFromFileOrText(
+      $job,
+      $script_path,
+      null,
+      $argv,
+      $stdin,
+      $stdout,
+      $stderr);
+  }
+  
+  public function launchScriptFromText(
+    Job $job,
+    $script_text,
+    array $argv,
+    Endpoint $stdin,
+    Endpoint $stdout,
+    Endpoint $stderr) {
+    
+    $this->launchScriptFromFileOrText(
+      $job,
+      null,
+      $script_text,
+      $argv,
+      $stdin,
+      $stdout,
+      $stderr);
+  }
+  
+  private function launchScriptFromFileOrText(
+    Job $job,
+    $script_path,
+    $script_text,
+    array $argv,
+    Endpoint $stdin, 
+    Endpoint $stdout,
+    Endpoint $stderr) {
+    
+    if ($script_path) {
+      omni_trace("launching script $script_path");
+    } else {
+      omni_trace("launching script from text");
+    }
     
     omni_trace("preparing forked process");
     
@@ -244,13 +285,17 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("loading file contents");
     
-    $trap = new PhutilErrorTrap();
-    $script = @file_get_contents($script_path);
-    $err = $trap->getErrorsAsString();
-    $trap->destroy();
-    if ($script === false) {
-      $stderr->write(new Exception('failed to read script file: '.$err));
-      omni_exit(1);
+    if ($script_path) {
+      $trap = new PhutilErrorTrap();
+      $script = @file_get_contents($script_path);
+      $err = $trap->getErrorsAsString();
+      $trap->destroy();
+      if ($script === false) {
+        $stderr->write(new Exception('failed to read script file: '.$err));
+        omni_exit(1);
+      }
+    } else {
+      $script = $script_text;
     }
     
     omni_trace("start parse");

@@ -40,6 +40,13 @@ $result = $args->parsePartial(
       'name'     => 'raw',
       'help'     => 'Use raw mode when shell is interactive.',
     ),
+    array(
+      'name'     => 'bundle',
+      'param'    => 'script',
+      'help'     => 
+        'Bundles the specified script with Omni, so that you can '.
+        'run the script without Omni installed.',
+    ),
 ));
 
 if ($args->getArg('trace')) {
@@ -50,6 +57,14 @@ if ($args->getArg('trace')) {
 $command = $args->getArg('command');
 
 omni_trace("starting");
+
+if ($args->getArg('bundle')) {
+  omni_trace("bundling ".$args->getArg('bundle'));
+  
+  omni_exit(
+    id(new OmniBundler())
+      ->bundle($args->getArg('bundle')));
+}
 
 if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));
