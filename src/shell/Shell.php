@@ -434,8 +434,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
               if (pcntl_wifexited($status)) {
                 $process->setExitCode(pcntl_wexitstatus($status));
               } else {
-                // TODO Should we set a negative signal code instead?
-                $process->setExitCode(-1);
+                $process->setExitCode(128 + pcntl_wtermsig($status));
               }
               if (pcntl_wifsignaled($status)) {
                 omni_trace(

@@ -213,9 +213,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       
       if ($result === null) {
         continue;
-      } if ($result instanceof ProcessInterface) {
+      } else if ($result instanceof ProcessInterface) {
         $this->processes[] = $result;
-      } elseif (is_array($result)) {
+      } else if (is_array($result)) {
         foreach ($result as $a) {
           if ($a instanceof ProcessInterface) {
             $this->processes[] = $a;

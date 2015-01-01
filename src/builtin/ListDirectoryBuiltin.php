@@ -432,16 +432,30 @@ final class ListDirectoryBuiltin extends Builtin {
       $paths[] = '.';
     }
     
+    $non_exist = false;
+    
     foreach ($paths as $path) {
       if (Filesystem::pathExists($path)) {
-        $entries = Filesystem::listDirectory($path);
-        foreach ($entries as $entry) {
-          $stdout->write(new StructuredFile(rtrim($path, '/').'/'.$entry));
+        if (is_dir($path)) {
+          $entries = Filesystem::listDirectory($path);
+          foreach ($entries as $entry) {
+            $stdout->write(new StructuredFile(rtrim($path, '/').'/'.$entry));
+          }
+        } else {
+          $stdout->write(new StructuredFile($path));
         }
+      } else {
+        $non_exist = true;
       }
     }
     
     $stdout->closeWrite();
+    
+    if ($non_exist) {
+      return 1;
+    } else {
+      return 0;
+    }
   }
 
 }

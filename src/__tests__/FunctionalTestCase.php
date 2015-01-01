@@ -42,6 +42,14 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('capture-exit-code');
   }
   
+  public function testLsExitCode0() {
+    $this->runFunctionalTest('ls-exit-code-0');
+  }
+  
+  public function testLsExitCode1() {
+    $this->runFunctionalTest('ls-exit-code-1');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

@@ -2,10 +2,13 @@
 
 final class BuiltinLaunchable
   extends Phobject
-  implements LaunchableInterface {
+  implements 
+    LaunchableInterface, 
+    BuiltinExitCodeInterface {
   
   private $builtin;
   private $arguments;
+  private $exitCode;
 
   public function __construct(Builtin $builtin, $arguments) {
     $this->builtin = $builtin;
@@ -19,8 +22,10 @@ final class BuiltinLaunchable
   
   public function launch(Shell $shell, Job $job, array $prepare_data) {
     try {
-      $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
+      $this->exitCode = $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
     } catch (Exception $ex) {
+      $this->exitCode = 128 + SIGILL;
+      
       phlog($ex);
       
       // Be on the safe side and close any pipes that were specified in
@@ -33,6 +38,10 @@ final class BuiltinLaunchable
     }
     
     return null;
+  }
+  
+  public function getExitCode() {
+    return $this->exitCode;
   }
   
  }

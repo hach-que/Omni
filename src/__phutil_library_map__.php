@@ -13,6 +13,7 @@ phutil_register_library_map(array(
     'ArgumentsVisitor' => 'shell/visitor/ArgumentsVisitor.php',
     'AssignmentVisitor' => 'shell/visitor/AssignmentVisitor.php',
     'Builtin' => 'builtin/Builtin.php',
+    'BuiltinExitCodeInterface' => 'shell/BuiltinExitCodeInterface.php',
     'BuiltinLaunchable' => 'shell/launchable/BuiltinLaunchable.php',
     'ByteStreamEndpointTestCase' => '__tests__/ByteStreamEndpointTestCase.php',
     'ChangeDirectoryBuiltin' => 'builtin/ChangeDirectoryBuiltin.php',
@@ -90,6 +91,7 @@ phutil_register_library_map(array(
     'BuiltinLaunchable' => array(
       'Phobject',
       'LaunchableInterface',
+      'BuiltinExitCodeInterface',
     ),
     'ByteStreamEndpointTestCase' => 'EndpointTestCase',
     'ChangeDirectoryBuiltin' => 'Builtin',

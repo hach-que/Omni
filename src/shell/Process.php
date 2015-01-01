@@ -126,6 +126,10 @@ final class Process
       $this->setCompleted(true);
     }
     
+    if ($target instanceof BuiltinExitCodeInterface) {
+      $this->setExitCode($target->getExitCode());
+    }
+    
     return $this;
   }
   
