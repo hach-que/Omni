@@ -74,7 +74,7 @@ final class PipelineVisitor extends Visitor {
         
         // For expressions, we have to create an endpoint which we can later
         // read objects from.
-        $capture_endpoint = $stdout_pipe->createOutboundEndpoint(PipeDefaults::$stdoutFormat);
+        $capture_endpoint = $stdout_pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
         
       } else {
         throw new Exception('Unknown type of job in pipeline '.print_r($data, true));
