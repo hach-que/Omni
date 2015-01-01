@@ -28,6 +28,7 @@ abstract class Visitor {
       'key_values' => 'KeyValuesVisitor',
       'key_value' => 'KeyValueVisitor',
       'number' => 'NumberVisitor',
+      'php' => 'PHPVisitor',
       'pipeline' => 'PipelineVisitor',
       'single_quoted' => 'SingleQuotedVisitor',
       'statements' => 'StatementsVisitor',

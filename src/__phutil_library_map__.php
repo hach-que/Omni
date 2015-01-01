@@ -57,6 +57,7 @@ phutil_register_library_map(array(
     'OmniAppLaunchable' => 'shell/launchable/OmniAppLaunchable.php',
     'OmniTrace' => 'utils/utils.php',
     'PHPSerializationEndpointTestCase' => '__tests__/PHPSerializationEndpointTestCase.php',
+    'PHPVisitor' => 'shell/visitor/PHPVisitor.php',
     'ParseSyntaxTestCase' => '__tests__/ParseSyntaxTestCase.php',
     'Pipe' => 'pipe/Pipe.php',
     'PipeBuiltin' => 'builtin/PipeBuiltin.php',
@@ -145,6 +146,7 @@ phutil_register_library_map(array(
     ),
     'OmniTrace' => 'Phobject',
     'PHPSerializationEndpointTestCase' => 'EndpointTestCase',
+    'PHPVisitor' => 'Visitor',
     'ParseSyntaxTestCase' => 'PhutilTestCase',
     'Pipe' => array(
       'Phobject',
