@@ -3,11 +3,9 @@
 final class StructuredFile extends Phobject {
 
   private $path;
-  private $lstat;
   
   public function __construct($path) {
     $this->path = Filesystem::resolvePath($path);
-    $this->lstat = lstat($this->path);
   }
   
   public function getAbsolutePath() {
@@ -24,6 +22,10 @@ final class StructuredFile extends Phobject {
   
   public function getParentDirectory() {
     return dirname($this->path);
+  }
+  
+  public function getExists() {
+    return Filesystem::pathExists($this->path);
   }
   
   public function isRegularFile() {
@@ -48,40 +50,75 @@ final class StructuredFile extends Phobject {
   }
   
   public function getPermissions() {
-    return idx($this->lstat, 'mode');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'mode');
   }
   
   public function getPermissionsString() {
+    if (!$this->getExists()) {
+      return null;
+    }
+  
     return substr(sprintf('%o', $this->getPermissions()), -4);
   }
   
   public function getCreationTime() {
-    return idx($this->lstat, 'ctime');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'ctime');
   }
   
   public function getModificationTime() {
-    return idx($this->lstat, 'mtime');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'mtime');
   }
   
   public function getAccessTime() {
-    return idx($this->lstat, 'atime');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'atime');
   }
   
   public function getOwnerID() {
-    return idx($this->lstat, 'uid');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'uid');
   }
   
   public function setOwnerID($id) {
+    if (!$this->getExists()) {
+      throw new Exception('setOwnerID can not be called on non-existant files');
+    }
+  
     $result = @chown($this->path, $id);
-    $this->lstat = lstat($this->path);
     return $result;
   }
   
   public function getOwnerName() {
+    if (!$this->getExists()) {
+      return null;
+    }
+  
     return idx(posix_getpwuid($this->getOwnerID()), 'name');
   }
   
   public function setOwnerName($name) {
+    if (!$this->getExists()) {
+      throw new Exception('setOwnerName can not be called on non-existant files');
+    }
+  
     $user = posix_getpwnam($name);
     if ($user === false) {
       return false;
@@ -92,25 +129,39 @@ final class StructuredFile extends Phobject {
     }
     
     $result = @chown($this->path, $uid);
-    $this->lstat = lstat($this->path);
     return $result;
   }
   
   public function getGroupID() {
-    return idx($this->lstat, 'gid');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'gid');
   }
   
   public function setGroupID($id) {
+    if (!$this->getExists()) {
+      throw new Exception('setGroupID can not be called on non-existant files');
+    }
+  
     $result = @chgrp($this->path, $id);
-    $this->lstat = lstat($this->path);
     return $result;
   }
   
   public function getGroupName() {
+    if (!$this->getExists()) {
+      return null;
+    }
+  
     return idx(posix_getgrgid($this->getGroupID()), 'name');
   }
   
   public function setGroupName($name) {
+    if (!$this->getExists()) {
+      throw new Exception('setGroupName can not be called on non-existant files');
+    }
+  
     $grp = posix_getgrnam($name);
     if ($grp === false) {
       return false;
@@ -121,56 +172,117 @@ final class StructuredFile extends Phobject {
     }
     
     $result = @chgrp($this->path, $gid);
-    $this->lstat = lstat($this->path);
     return $result;
   }
   
   public function getDeviceNumber() {
-    return idx($this->lstat, 'dev');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'dev');
   }
   
   public function getDeviceType() {
-    return idx($this->lstat, 'rdev');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'rdev');
   }
   
   public function getInodeNumber() {
-    return idx($this->lstat, 'ino');
+    if (!$this->getExists()) {
+      return null;
+    }
+  
+    return idx(lstat($this->path), 'ino');
   }
   
   public function getHardLinkCount() {
+    if (!$this->getExists()) {
+      return 0;
+    }
+  
     if ($this->isDirectory()) {
       return 1;
     } else {
-      return idx($this->lstat, 'nlink');
+      return idx(lstat($this->path), 'nlink');
     }
   }
   
   public function getChildrenCount() {
+    if (!$this->getExists()) {
+      return 0;
+    }
+  
     if ($this->isDirectory()) {
-      return idx($this->lstat, 'nlink') - 2;
+      return idx(lstat($this->path), 'nlink') - 2;
     } else {
       return 0;
     }
   }
   
   public function getSize() {
-    return idx($this->lstat, 'size');
+    if (!$this->getExists()) {
+      return 0;
+    }
+  
+    return idx(lstat($this->path), 'size');
   }
   
   public function getBlockSize() {
-    return idx($this->lstat, 'blksize');
+    if (!$this->getExists()) {
+      return 0;
+    }
+  
+    return idx(lstat($this->path), 'blksize');
   }
   
   public function getBlocks() {
-    return idx($this->lstat, 'blocks');
+    if (!$this->getExists()) {
+      return 0;
+    }
+  
+    return idx(lstat($this->path), 'blocks');
   }
   
   public function delete() {
-    return @unlink($this->path);
+    if (Filesystem::pathExists($this->path)) {
+      return @unlink($this->path);
+    }
+  }
+  
+  public function createFile() {
+    if (!Filesystem::pathExists($this->path)) {
+      return @touch($this->path);
+    }
+    
+    return true;
   }
 
+  public function createDirectory() {
+    if (!Filesystem::pathExists($this->path)) {
+      return @mkdir($this->path);
+    }
+    
+    return true;
+  }
+  
   public function loadContent() {
+    if (!$this->getExists()) {
+      return null;
+    }
+  
     return file_get_contents($this->path);
+  }
+  
+  public function setContent($content) {
+    if (!$this->getExists()) {
+      $this->createFile();
+    }
+  
+    file_put_contents($this->path, $content);
   }
   
 }

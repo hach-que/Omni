@@ -62,6 +62,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('foreach-statement-1');
   }
   
+  public function testFileAccess1() {
+    $this->runFunctionalTest('file-access-1');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

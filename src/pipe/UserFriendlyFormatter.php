@@ -110,6 +110,8 @@ final class UserFriendlyFormatter extends Phobject {
       );
     }
     foreach ($methods as $name => $method) {
+      $show_method = false;
+      
       if (preg_match('/^get[A-Z]/', $name)) {
         if ($method->isStatic()) {
           continue;
@@ -118,13 +120,14 @@ final class UserFriendlyFormatter extends Phobject {
           continue;
         }
         $field_name = substr($name, 3);
+        $upper_field_name = strtoupper($field_name[0]).substr($field_name, 1);
         $field_name = strtolower($field_name[0]).substr($field_name, 1);
         $array[$field_name] = array(
-          'writable' => idx($methods, 'set'.$field_name),
+          'writable' => idx($methods, 'set'.$upper_field_name) !== null,
           'value' => $method->invoke($object),
           'php-type' => 'method-property',
           'php-name' => $name,
-          'php-write-name' => 'set'.$field_name,
+          'php-write-name' => 'set'.$upper_field_name,
         );
       } else if (preg_match('/^is[A-Z]/', $name)) {
         if ($method->isStatic()) {
@@ -141,11 +144,21 @@ final class UserFriendlyFormatter extends Phobject {
           'php-name' => $name,
         );
       } else if (preg_match('/^set[A-Z]/', $name)) {
-        // Represented as a property.
-        continue;
+        $field_name = substr($name, 3);
+        $upper_field_name = strtoupper($field_name[0]).substr($field_name, 1);
+        if (idx($methods, 'get'.$upper_field_name) !== null) {
+          // Represented as a property.
+          continue;
+        } else {
+          $show_method = true;
+        }
       } else if (preg_match('/^((__[a-z]+)|current|key|next|rewind|valid)$/', $name)) {
         // Ignore these methods.
       } else {
+        $show_method = true;
+      }
+      
+      if ($show_method) {
         $field_name = $name.'()';
         $parameter_strs = array();
         foreach ($method->getParameters() as $parameter) {

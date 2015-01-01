@@ -63,7 +63,18 @@ EOF;
     $parser->parseFull($this->getArguments($shell, $job, $prepare_data));
     
     if ($parser->getArg('type')) {
-      $stdout->write(newv($parser->getArg('type'), $parser->getArg('args')));
+      $type_name = $parser->getArg('type');
+      
+      try {
+        if (class_exists('Structured'.$parser->getArg('type'))) {
+          $type_name = 'Structured'.$parser->getArg('type');
+        }
+      } catch (PhutilMissingSymbolException $ex) {
+        // This will fail later on if the type doesn't exist
+        // at all.
+      }
+      
+      $stdout->write(newv($type_name, $parser->getArg('args')));
     } else {
       throw new Exception('The type argument is mandatory.');
     }
