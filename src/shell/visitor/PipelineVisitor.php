@@ -39,53 +39,67 @@ final class PipelineVisitor extends Visitor {
       }
     }
     
-    omni_trace("setting up pipes for stdin / stdout / stderr");
+    omni_trace("detecting pure native job?");
     
-    $stdin_pipe = new Pipe();
-    $stdout_pipe = $requires_inprocess_pipes ? id(new InProcessPipe()) : id(new Pipe());
-    $stderr_pipe = new Pipe();
-    
-    try {
-      omni_trace("configuring job background / foreground expression before execution");
+    if ($data['data'] === 'foreground' && $job->isPureNativeJob($shell)) {
+      omni_trace("is pure native job, will launch with no pipes");
       
-      if ($data['data'] !== 'expression') {
-        $stdout_pipe->attachStdoutEndpoint(PipeDefaults::$stdoutFormat);
-      }
+      $stdin_pipe = new FixedPipe(FileDescriptorManager::STDIN_FILENO, true);
+      $stdout_pipe = new FixedPipe(FileDescriptorManager::STDOUT_FILENO, false);
+      $stderr_pipe = new FixedPipe(FileDescriptorManager::STDERR_FILENO, false);
       
-      $stderr_pipe->attachStderrEndpoint(PipeDefaults::$stderrFormat);
-      
-      if ($data['data'] === 'foreground') {
-        $job->setForeground(true);
-        
-        // FIXME As soon as attachStdinEndpoint is run, the standard input controller
-        // starts.  If there's an exception later on, we aren't killing the standard
-        // input controller (or any of the other controllers for that matter).  We
-        // probably need to give jobs an exception property, and then write any
-        // exception that occurs to that property, before finally sending SIGKILL to
-        // any processes in the job (in addition, we should always add these controllers
-        // as processes to the job, but refer to the TODO in the Job code around standard
-        // input handling).
-        $stdin_pipe->attachStdinEndpoint(PipeDefaults::$stdinFormat);
-        
-      } elseif ($data['data'] === 'background') {
-        $job->setForeground(false);
-      } elseif ($data['data'] === 'expression') {
-        $job->setForeground(true);
-        
-        // For expressions, we have to create an endpoint which we can later
-        // read objects from.
-        $capture_endpoint = $stdout_pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
-        
-      } else {
-        throw new Exception('Unknown type of job in pipeline '.print_r($data, true));
-      }
+      $job->setForeground(true);
       
       omni_trace("executing job");
-    } catch (Exception $ex) {
-      $stdin_pipe->killController();
-      $stdout_pipe->killController();
-      $stderr_pipe->killController();
-      throw $ex;
+    } else {
+      omni_trace("setting up pipes for stdin / stdout / stderr");
+      
+      $stdin_pipe = new Pipe();
+      $stdout_pipe = $requires_inprocess_pipes ? id(new InProcessPipe()) : id(new Pipe());
+      $stderr_pipe = new Pipe();
+      
+      try {
+        omni_trace("configuring job background / foreground expression before execution");
+        
+        if ($data['data'] !== 'expression') {
+          $stdout_pipe->attachStdoutEndpoint(PipeDefaults::$stdoutFormat);
+        }
+        
+        $stderr_pipe->attachStderrEndpoint(PipeDefaults::$stderrFormat);
+        
+        if ($data['data'] === 'foreground') {
+          $job->setForeground(true);
+          
+          // FIXME As soon as attachStdinEndpoint is run, the standard input controller
+          // starts.  If there's an exception later on, we aren't killing the standard
+          // input controller (or any of the other controllers for that matter).  We
+          // probably need to give jobs an exception property, and then write any
+          // exception that occurs to that property, before finally sending SIGKILL to
+          // any processes in the job (in addition, we should always add these controllers
+          // as processes to the job, but refer to the TODO in the Job code around standard
+          // input handling).
+          $stdin_pipe->attachStdinEndpoint(PipeDefaults::$stdinFormat);
+          
+        } elseif ($data['data'] === 'background') {
+          $job->setForeground(false);
+        } elseif ($data['data'] === 'expression') {
+          $job->setForeground(true);
+          
+          // For expressions, we have to create an endpoint which we can later
+          // read objects from.
+          $capture_endpoint = $stdout_pipe->createOutboundEndpoint(Endpoint::FORMAT_PHP_SERIALIZATION);
+          
+        } else {
+          throw new Exception('Unknown type of job in pipeline '.print_r($data, true));
+        }
+        
+        omni_trace("executing job");
+      } catch (Exception $ex) {
+        $stdin_pipe->killController();
+        $stdout_pipe->killController();
+        $stderr_pipe->killController();
+        throw $ex;
+      }
     }
     
     try {

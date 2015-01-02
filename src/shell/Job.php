@@ -126,6 +126,25 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     $this->temporaryPipes = null;
   }
   
+  /**
+   * Returns true if this job has a single stage (with no
+   * redirections or pipes), and the single stage will
+   * execute a native command.
+   *
+   * In this situation, we can skip attachment of pipes
+   * to the native process and just give it full control.
+   * This ensures interactive commands like Vim, and
+   * commands that output colours on interactive
+   * terminals (like Arcanist) work correctly.
+   */
+  public function isPureNativeJob(Shell $shell) {
+    if (count($this->stages) !== 1) {
+      return false;
+    }
+    
+    return $this->stages[0]->detectProcessType($shell) === 'native';
+  }
+  
   public function execute(
     Shell $shell,
     PipeInterface $stdin,

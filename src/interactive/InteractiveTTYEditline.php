@@ -135,12 +135,11 @@ final class InteractiveTTYEditline extends Phobject {
       $this->clearSuggestions();
     }
     
-    editline_history_add($input);
-    
     omni_trace("execute input");
     
     try {
       $this->shell->execute($this->continuingLineBuffer.$input);
+      $this->addCommandToHistory($input);
       $this->continuingLine = false;
       $this->continuingLineBuffer = '';
     } catch (StatementNotTerminatedException $ex) {
@@ -148,6 +147,9 @@ final class InteractiveTTYEditline extends Phobject {
       $this->continuingLineBuffer .= substr($input, 0, strlen($input) - 1).' ';
     } catch (Exception $ex) {
       phlog($ex);
+      $this->addCommandToHistory($input);
+      $this->continuingLine = false;
+      $this->continuingLineBuffer = '';
     }
     
     if (!$this->raw && !$this->shell->wantsToExit()) {
@@ -163,6 +165,12 @@ final class InteractiveTTYEditline extends Phobject {
       }
       
       omni_trace("ready for editline input");
+    }
+  }
+  
+  private function addCommandToHistory($input) {
+    if (strlen(trim($this->continuingLineBuffer.$input)) > 0) {
+      editline_history_add($this->continuingLineBuffer.$input);
     }
   }
 

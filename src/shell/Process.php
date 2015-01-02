@@ -13,6 +13,7 @@ final class Process
   private $type;
   private $description;
   private $exitCode;
+  private $resolvedExecutable;
   
   public function __construct(array $argv, $original_argv) {
     $this->arguments = $argv;
@@ -79,25 +80,46 @@ final class Process
     return false;
   }
   
-  public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
-    $executable = array_shift($this->arguments);
-    $resolved_executable = Filesystem::resolveBinary($executable);
-    $is_native = false;
+  public function detectProcessType(Shell $shell) {
+    if ($this->type !== null) {
+      return $this->type;
+    }
     
-    $this->description = trim($resolved_executable.' '.$this->originalArguments);
+    $executable = head($this->arguments);
+    if ($this->resolvedExecutable === null) {
+      $this->resolvedExecutable = Filesystem::resolveBinary($executable);
+    }
     
     if ($shell->isKnownBuiltin($executable)) {
-      $builtin = $shell->lookupBuiltin($executable);
-      $target = $this->createBuiltinLaunch($builtin, $this->arguments);
       $this->type = 'builtin';
-    } elseif ($resolved_executable === null) {
+    } elseif ($this->resolvedExecutable === null) {
       throw new Exception('Unable to find \''.$executable.'\' on the current PATH');
-    } elseif ($this->isOmniApp($resolved_executable)) {
-      $target = $this->createOmniAppLaunch($resolved_executable, $this->arguments);
+    } elseif ($this->isOmniApp($this->resolvedExecutable)) {
       $this->type = 'omni-app';
     } else {
-      $target = $this->createNativeLaunch($resolved_executable, $this->arguments);
       $this->type = 'native';
+    }
+    
+    return $this->type;
+  }
+  
+  public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
+    $this->detectProcessType($shell);
+    
+    $executable = array_shift($this->arguments);
+    $this->description = trim($this->resolvedExecutable.' '.$this->originalArguments);
+    
+    switch ($this->type) {
+      case 'builtin':
+        $builtin = $shell->lookupBuiltin($executable);
+        $target = $this->createBuiltinLaunch($builtin, $this->arguments);
+        break;
+      case 'omni-app':
+        $target = $this->createOmniAppLaunch($this->resolvedExecutable, $this->arguments);
+        break;
+      case 'native':
+        $target = $this->createNativeLaunch($this->resolvedExecutable, $this->arguments);
+        break;
     }
     
     $data = $target->prepare($shell, $job, $stdin, $stdout, $stderr);
