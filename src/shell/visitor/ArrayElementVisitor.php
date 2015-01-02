@@ -10,7 +10,7 @@ final class ArrayElementVisitor extends Visitor {
       );
     } else if (count($data['children']) === 2) {
       return array(
-        'has-key' => false,
+        'has-key' => true,
         'key' => $this->visitChild($shell, $data['children'][0]),
         'value' => $this->visitChild($shell, $data['children'][1]),
       );

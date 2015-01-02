@@ -41,6 +41,7 @@ abstract class Visitor {
       'number' => 'NumberVisitor',
       'php' => 'PHPVisitor',
       'pipeline' => 'PipelineVisitor',
+      'return' => 'ReturnVisitor',
       'single_quoted' => 'SingleQuotedVisitor',
       'statements' => 'StatementsVisitor',
       'statement' => 'StatementVisitor',

@@ -38,6 +38,7 @@ phutil_register_library_map(array(
     'FunctionalTestCase' => '__tests__/FunctionalTestCase.php',
     'FuturesBuiltin' => 'builtin/FuturesBuiltin.php',
     'HasTerminalModesInterface' => 'shell/HasTerminalModesInterface.php',
+    'HttpServeBuiltin' => 'builtin/HttpServeBuiltin.php',
     'IfVisitor' => 'shell/visitor/IfVisitor.php',
     'InProcessEndpoint' => 'pipe/inprocess/InProcessEndpoint.php',
     'InProcessPipe' => 'pipe/inprocess/InProcessPipe.php',
@@ -77,6 +78,8 @@ phutil_register_library_map(array(
     'ProcessIDWrapper' => 'shell/ProcessIDWrapper.php',
     'ProcessInterface' => 'shell/ProcessInterface.php',
     'ProcessLegacy' => 'shell/ProcessLegacy.php',
+    'ReturnFlowControlException' => 'shell/visitor/flowcontrol/ReturnFlowControlException.php',
+    'ReturnVisitor' => 'shell/visitor/ReturnVisitor.php',
     'Shell' => 'shell/Shell.php',
     'SingleQuotedVisitor' => 'shell/visitor/SingleQuotedVisitor.php',
     'StatementNotTerminatedException' => 'shell/StatementNotTerminatedException.php',
@@ -125,6 +128,7 @@ phutil_register_library_map(array(
     'FunctionVisitor' => 'Visitor',
     'FunctionalTestCase' => 'PhutilTestCase',
     'FuturesBuiltin' => 'Builtin',
+    'HttpServeBuiltin' => 'Builtin',
     'IfVisitor' => 'Visitor',
     'InProcessEndpoint' => 'Phobject',
     'InProcessPipe' => array(
@@ -182,6 +186,8 @@ phutil_register_library_map(array(
       'ProcessInterface',
     ),
     'ProcessLegacy' => 'Phobject',
+    'ReturnFlowControlException' => 'Exception',
+    'ReturnVisitor' => 'Visitor',
     'Shell' => array(
       'Phobject',
       'HasTerminalModesInterface',
