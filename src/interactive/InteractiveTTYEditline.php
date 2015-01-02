@@ -93,6 +93,8 @@ final class InteractiveTTYEditline extends Phobject {
   public function renderSuggestions($input) {
     $suggestions = $this->getSuggestionsForInput($input);
     
+    $this->calculateAutocomplete($input, $suggestions);
+    
     if ($this->maxSuggestions < count($suggestions)) {
       $this->maxSuggestions = count($suggestions);
     }
@@ -115,6 +117,23 @@ final class InteractiveTTYEditline extends Phobject {
       echo "\x1B8\x1B[".$x."B\x1B[2K";
     }
     echo "\x1B8";
+  }
+  
+  public function calculateAutocomplete($input, array $suggestions) {
+    $autocomplete = array();
+    
+    foreach ($suggestions as $suggestion) {
+      if (substr($suggestion, 0, strlen($input)) === $input) {
+        $remaining = substr($suggestion, strlen($input));
+        $space_char = strpos($remaining, ' ', 0);
+        if ($space_char === 0) {
+          continue;
+        }
+        $autocomplete[] = substr($remaining, 0, $space_char);
+      }
+    }
+    
+    editline_autocomplete_set($autocomplete);
   }
   
   public function clearSuggestions() {
