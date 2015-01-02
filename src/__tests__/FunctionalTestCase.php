@@ -98,6 +98,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('assignment-5');
   }
   
+  public function testFunction1() {
+    $this->runFunctionalTest('function-1');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

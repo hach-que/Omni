@@ -11,7 +11,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $terminal;
   private $isInteractive;
   private $jobs = array();
-  private $variables = array();
+  private $variableManager;
   private $builtins;
   private $isExiting;
   private $jobsToKillPipesOnExit = array();
@@ -23,6 +23,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       ->setAncestorClass('Builtin')
       ->loadObjects();
     $this->builtins = mpull($this->builtins, null, 'getName');
+    $this->variableManager = new VariableManager($this);
   }
   
   
@@ -262,7 +263,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $this->terminal = null;
     $this->isInteractive = null;
     $this->jobs = array();
-    $this->variables = array();
+    $this->variableManager = new VariableManager($this);
     // Do not reset $builtins; we keep this so we don't
     // need to reload it.
     $this->isExiting = false;
@@ -275,12 +276,13 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("preparing variables");
     
-    $this->variables['stdin'] = $stdin;
-    $this->variables['stdout'] = $stdout;
-    $this->variables['stderr'] = $stderr;
-    $this->variables[0] = $script_path;
+    $this->setVariable('stdin', $stdin);
+    $this->setVariable('stdout', $stdout);
+    $this->setVariable('stderr', $stderr);
+    $this->setVariable(0, $script_path);
+    $this->setVariable('argc', count($argv));
     for ($i = 0; $i < count($argv); $i++) {
-      $this->variables[$i + 1] = $argv[$i];
+      $this->setVariable($i + 1, $argv[$i]);
     }
     
     omni_trace("loading file contents");
@@ -673,7 +675,11 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
         }
       }
       
-      $stderr->write($ex);
+      try {
+        $stderr->write($ex);
+      } catch (NativePipeClosedException $exx) {
+        echo (string)$ex;
+      }
     }
   }
   
@@ -782,33 +788,24 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
 /* -(  Shell Variables  )---------------------------------------------------- */
   
   
+  public function beginVariableScope() {
+    return $this->variableManager->beginVariableScope();
+  }
+  
   public function setVariable($key, $value) {
-    switch ($key) {
-      case 'true':
-      case 'false':
-      case 'null':
-        throw new Exception('You can not set the value of constant $'.$key);
-      case '?':
-        throw new Exception('The $? variable is read-only');
-      default:
-        $this->variables[$key] = $value;
-        break;
-    }
+    return $this->variableManager->setVariable($key, $value);
   }
   
   public function getVariable($key) {
-    switch ($key) {
-      case 'true':
-        return true;
-      case 'false':
-        return false;
-      case 'null':
-        return null;
-      case '?':
-        return $this->lastExitCode;
-      default:
-        return idx($this->variables, $key, null);
-    }
+    return $this->variableManager->getVariable($key);
+  }
+  
+  public function endVariableScope() {
+    return $this->variableManager->endVariableScope();
+  }
+  
+  public function getLastExitCode() {
+    return $this->lastExitCode;
   }
   
   

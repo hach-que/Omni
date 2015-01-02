@@ -33,6 +33,7 @@ abstract class Visitor {
       'foreach' => 'ForeachVisitor',
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
+      'function' => 'FunctionVisitor',
       'if' => 'IfVisitor',
       'invocation' => 'InvocationVisitor',
       'key_values' => 'KeyValuesVisitor',
