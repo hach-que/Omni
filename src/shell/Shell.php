@@ -303,8 +303,9 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $results = omnilang_parse($script);
     
     if ($results === false) {
-      $stderr->write(omnilang_get_error());
-      omni_trace("execute failed due to parse error: ".omnilang_get_error());
+      $error = omnilang_get_error();
+      $stderr->write($error);
+      omni_trace("execute failed due to parse error: ".$error);
       omni_exit(1);
     } else {
       omni_trace("visit nodes with result");
@@ -634,13 +635,24 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $stderr = $this->createInternalStderrEndpoint();
   
     try {
-      omni_trace("start parse");
+      omni_trace("start parse of: ");
+      omni_trace($input);
       
       $results = omnilang_parse($input);
       
       if ($results === false) {
-        omni_trace("execute failed due to parse error: ".omnilang_get_error());
-        throw new Exception(omnilang_get_error());
+        $error = omnilang_get_error();
+        
+        if (substr_count($error, "unexpected \$end") > 0 || 
+          substr_count($error, "unexpected TERMINATING_NEWLINE") > 0 ||
+          substr_count($error, "unexpected UNTERMINATED_LEXING_BLOCK") > 0) {
+          
+          omni_trace("statement not terminated");
+          throw new StatementNotTerminatedException();
+        }
+        
+        omni_trace("execute failed due to parse error: ".$error);
+        throw new Exception($error);
       } else {
         omni_trace("visit nodes with result");
         
@@ -655,6 +667,12 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
         omni_trace("after doJobNotification");
       }
     } catch (Exception $ex) {
+      if ($ex instanceof StatementNotTerminatedException) {
+        if ($this->isInteractive) {
+          throw $ex;
+        }
+      }
+      
       $stderr->write($ex);
     }
   }

@@ -145,4 +145,15 @@ EOF
     }
   }
   
+  public function testInvalidSyntax() {
+    $strings = array(
+      "<?php echo 'test';",
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertFalse(is_array($result), $str);
+    }
+  }
+  
 }

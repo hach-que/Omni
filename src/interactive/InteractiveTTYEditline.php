@@ -7,6 +7,8 @@ final class InteractiveTTYEditline extends Phobject {
   private $maxSuggestions = 0;
   private $simulate;
   private $raw = false;
+  private $continuingLine = false;
+  private $continuingLineBuffer = '';
   
   public function setRaw($raw) {
     $this->raw = $raw;
@@ -35,6 +37,7 @@ final class InteractiveTTYEditline extends Phobject {
     $this->shell->initialize();
     
     if (!$this->raw) {
+      editline_init();
       editline_begin($this->getPrompt());
       
       $this->renderSuggestions('');
@@ -64,7 +67,6 @@ final class InteractiveTTYEditline extends Phobject {
         
         $this->handleCommand($result);
       } else {
-        //editline_set_prompt($this->getPrompt());
         $result = editline_read();
       
         switch ($result['status']) {
@@ -79,6 +81,8 @@ final class InteractiveTTYEditline extends Phobject {
               $this->renderSuggestions('');
             }
             break;
+          default:
+            throw new Exception('Unknown status '.$result['status']);
         }
       }
     }
@@ -131,10 +135,17 @@ final class InteractiveTTYEditline extends Phobject {
       $this->clearSuggestions();
     }
     
+    editline_history_add($input);
+    
     omni_trace("execute input");
     
     try {
-      $this->shell->execute($input);
+      $this->shell->execute($this->continuingLineBuffer.$input);
+      $this->continuingLine = false;
+      $this->continuingLineBuffer = '';
+    } catch (StatementNotTerminatedException $ex) {
+      $this->continuingLine = true;
+      $this->continuingLineBuffer .= substr($input, 0, strlen($input) - 1).' ';
     } catch (Exception $ex) {
       phlog($ex);
     }
@@ -144,7 +155,11 @@ final class InteractiveTTYEditline extends Phobject {
       
       if (!$this->simulate) {
         editline_end();
-        editline_begin($this->getPrompt());
+        if ($this->continuingLine) {
+          editline_begin(">> ");
+        } else {
+          editline_begin($this->getPrompt());
+        }
       }
       
       omni_trace("ready for editline input");
