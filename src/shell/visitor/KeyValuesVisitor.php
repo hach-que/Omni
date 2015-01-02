@@ -6,7 +6,7 @@ final class KeyValuesVisitor extends Visitor {
     $options = array();
     
     foreach ($data['children'] as $child) {
-      $option = $this->visitChild($shell, $child);
+      $option = $this->visitChild($shell, $child)->getCopy();
       $options[$option['key']] = $option['value'];
     }
     

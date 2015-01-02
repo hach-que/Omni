@@ -16,7 +16,7 @@ final class PipelineVisitor extends Visitor {
         // In an expression pipeline, the last child is always the
         // expression options (empty if no options were specified).
         if ($i === count($data['children']) - 1) {
-          $expression_options = $this->visitChild($shell, $child);
+          $expression_options = $this->visitChild($shell, $child)->getCopy();
           continue;
         }
       }

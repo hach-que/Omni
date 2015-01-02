@@ -4,6 +4,9 @@ final class ForeachVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
     $expression = $this->visitChild($shell, $data['children'][0]);
+    if ($expression instanceof ArrayContainer) {
+      $expression = $expression->getCopy();
+    }
     
     $mapping_count = count($data['children'][1]['children']);
     if ($mapping_count === 1) {

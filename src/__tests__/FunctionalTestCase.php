@@ -78,6 +78,26 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('exec-future-1');
   }
   
+  public function testAssignment1() {
+    $this->runFunctionalTest('assignment-1');
+  }
+  
+  public function testAssignment2() {
+    $this->runFunctionalTest('assignment-2');
+  }
+  
+  public function testAssignment3() {
+    $this->runFunctionalTest('assignment-3');
+  }
+  
+  public function testAssignment4() {
+    $this->runFunctionalTest('assignment-4');
+  }
+  
+  public function testAssignment5() {
+    $this->runFunctionalTest('assignment-5');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

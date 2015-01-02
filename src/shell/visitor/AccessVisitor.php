@@ -12,8 +12,17 @@ final class AccessVisitor extends Visitor {
       $value = $this->visitChild($shell, $data['children'][2]);
     }
     
-    if (is_array($parent)) {
-      return $parent[$child];
+    if ($parent instanceof ArrayContainer) {
+      if ($is_assignment) {
+        if ($child === '[]') {
+          $parent->append($value);
+        } else {
+          $parent->set($child, $value);
+        }
+        return $value;
+      } else {
+        return $parent->get($child);
+      }
     } else if (is_object($parent)) {
       $result = UserFriendlyFormatter::getObjectPropertiesAndMethods($parent);
       
@@ -30,7 +39,7 @@ final class AccessVisitor extends Visitor {
             $reflection = new ReflectionClass($parent);
             
             if ($is_assignment) {
-              $method = $reflection->getMethod($info['php-name-write']);
+              $method = $reflection->getMethod($info['php-write-name']);
               $method->invokeArgs($parent, array($value));
               return $value;
             } else {

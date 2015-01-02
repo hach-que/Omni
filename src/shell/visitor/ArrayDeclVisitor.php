@@ -3,7 +3,11 @@
 final class ArrayDeclVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
-    return $this->visitChild($shell, $data['children'][0]);
+    if (count($data['children']) > 0) {
+      return $this->visitChild($shell, $data['children'][0]);
+    } else {
+      return new ArrayContainer();
+    }
   }
   
 }

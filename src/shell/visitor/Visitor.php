@@ -9,6 +9,11 @@ abstract class Visitor {
     
     omni_trace("end visit ".get_class($this));
     
+    if (is_array($value)) {
+      omni_trace("automatically wrapping raw array as ArrayContainer");
+      $value = new ArrayContainer($value);
+    }
+    
     return $value;
   }
   
