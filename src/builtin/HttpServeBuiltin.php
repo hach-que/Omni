@@ -99,25 +99,110 @@ EOF;
       $stdout->write("Reading HTTP request");
       $request = $this->readHTTPRequest($conn);
       
+      $handled = false;
       foreach ($map as $path => $function) {
+        $type_and_path = explode(':', $path, 2);
+        $type = null;
+        $path = null;
+        if (count($type_and_path) === 1) {
+          $type = 'http';
+          $path = $type_and_path[0];
+        } else if (count($type_and_path) === 2) {
+          $type = $type_and_path[0];
+          $path = $type_and_path[1];
+        }
+        
         $stdout->write("Trying to match ".$request['path']." with (regex) ".$path."...");
         
         if (preg_match('@^'.$path.'$@', $request['path'], $matches) === 1) {
           $stdout->write("Handling on: ".$path);
-          $result = $shell->invokeCallable($function, array($request));
-          $stdout->write("Sending HTTP response");
-          $this->sendHTTPResponse($conn, $result, "200 OK");
+          $handled = true;
+          
+          switch ($type) {
+            case 'http':
+              $stdout->write("Handling as HTTP request");
+              $result = $shell->invokeCallable($function, array($request));
+              $stdout->write("Sending HTTP response");
+              $this->sendHTTPResponse($conn, $result, "200 OK");
+              break;
+            case 'socket':
+              $stdout->write("Handling as WebSocket request");
+              $this->performSocketCommunications($shell, $stdout, $conn, $request, $function);
+              break;
+            default:
+              throw new Exception('Unknown request type '.$type);
+          }
+          
           break;
         }
       }
       
-      $stdout->write("Sending 404 HTTP response");
-      $this->sendHTTPResponse($conn, $this->get404Message(), "404 Not Found");
+      if (!$handled) {
+        $stdout->write("Sending 404 HTTP response");
+        $this->sendHTTPResponse($conn, $this->get404Message(), "404 Not Found");
+      }
       
       socket_close($conn);
     }
     
     $stdout->closeWrite();
+  }
+  
+  private function performSocketCommunications($shell, $stdout, $conn, $request, $function) {
+    $stdout->write("beginning websocket communications");
+  
+    if (idx($request['headers'], 'Upgrade') !== 'websocket' ||
+      idx($request['headers'], 'Connection') !== 'Upgrade') {
+      $stdout->write("invalid request headers; terminating websocket");
+    
+      $this->sendHTTPResponse($conn, $this->get500Message(), "500 Internal Server Error");
+      return;
+    }
+    
+    $stdout->write("calculating token and protocol");
+    
+    $accept_token = idx($request['headers'], 'Sec-WebSocket-Key');
+    $accept_token = $accept_token.'258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+    $accept_token = base64_encode(sha1($accept_token, true));
+    $protocol = '';
+    if (isset($request['headers']['Sec-WebSocket-Protocol'])) {
+      $protocols = explode(',', idx($request['headers'], 'Sec-WebSocket-Protocol'));
+      $protocol = trim(head($protocols));
+      $protocol = "Sec-WebSocket-Protocol: $protocol\r\n";
+    }
+    
+    $stdout->write("accept token is $accept_token");
+    $stdout->write("protocol is $protocol");
+    
+    $upgrade = 
+      "HTTP/1.1 101 Switching Protocols\r\n".
+      "Upgrade: websocket\r\n".
+      "Connection: Upgrade\r\n".
+      "Sec-WebSocket-Accept: $accept_token\r\n".
+      $protocol.
+      "\r\n";
+    
+    $stdout->write("writing websocket response header");
+    
+    socket_write($conn, $upgrade, strlen($upgrade));
+    
+    $stdout->write("creating socket endpoint");
+    
+    // Construct two endpoints that represent the read and write
+    // endpoints of the socket.
+    $endpoint = new WebSocketEndpoint($conn);
+    
+    $stdout->write("writing websocket response header");
+    
+    $data = array(
+      'action' => $request['action'],
+      'path' => $request['path'],
+      'headers' => $request['headers'],
+      'data' => null,
+      'endpoint' => $endpoint,
+    );
+    
+    $shell->invokeCallable($function, array($data));
   }
 
   private function readHTTPRequest($conn) {

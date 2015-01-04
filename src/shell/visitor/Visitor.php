@@ -46,6 +46,7 @@ abstract class Visitor {
       'statements' => 'StatementsVisitor',
       'statement' => 'StatementVisitor',
       'variable' => 'VariableVisitor',
+      'while' => 'WhileVisitor',
     );
   
     $visitor_name = idx($mappings, $child['type']);

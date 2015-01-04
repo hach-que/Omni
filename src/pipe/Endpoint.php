@@ -4,19 +4,10 @@
  * The class which actually wraps a native system pipe, serializing and
  * deserializing data as needed.
  */
-final class Endpoint extends Phobject {
-
-  const FORMAT_PHP_SERIALIZATION = 'php-serialization';
-  const FORMAT_LENGTH_PREFIXED_JSON = 'json-lp';
-  const FORMAT_BYTE_STREAM = 'byte-stream';
-  const FORMAT_NEWLINE_SEPARATED = 'newline-separated';
-  const FORMAT_NULL_SEPARATED = 'null-separated';
-  const FORMAT_USER_FRIENDLY = 'user-friendly';
+final class Endpoint extends BaseEndpoint {
 
   private $nativePipe;
   private $nativePipePending;
-  private $writeFormat = self::FORMAT_PHP_SERIALIZATION;
-  private $readFormat = self::FORMAT_PHP_SERIALIZATION;
   private $name = null;
   private $closable = true;
   private $userFriendlyFormatter = null;
@@ -133,11 +124,11 @@ final class Endpoint extends Phobject {
     return $this;
   }
   
-  public function getWriteFormat($format) {
+  public function getWriteFormat() {
     return $this->writeFormat;
   }
   
-  public function getReadFormat($format) {
+  public function getReadFormat() {
     return $this->readFormat;
   }
   
@@ -147,142 +138,6 @@ final class Endpoint extends Phobject {
       $this->nativePipePending = false;
       omni_trace("created a pipe with read FD ".$this->getReadFD()." and write FD ".$this->getWriteFD());
     }
-  }
-  
-  private function convertToStringIfNeeded($object) {
-    try {
-      assert_stringlike($object);
-      return (string)$object;
-    } catch (Exception $e) {
-      return print_r($object, true);
-    }
-  }
-  
-  public function write($object) {
-    if ($object instanceof Exception) {
-      $object = $this->handleExceptionWritten($object);
-    }
-    
-    $data = null;
-    switch ($this->writeFormat) {
-      case self::FORMAT_PHP_SERIALIZATION:
-        $data = $this->lengthPrefix(serialize($object));
-        break;
-      case self::FORMAT_LENGTH_PREFIXED_JSON:
-        $data = $this->lengthPrefix(json_encode($object));
-        break;
-      case self::FORMAT_BYTE_STREAM:
-        $data = $this->convertToStringIfNeeded($object);
-        break;
-      case self::FORMAT_NEWLINE_SEPARATED:
-        $data = trim($this->convertToStringIfNeeded($object), "\n")."\n";
-        break;
-      case self::FORMAT_NULL_SEPARATED:
-        $data = trim($this->convertToStringIfNeeded($object), "\0")."\0";
-        break;
-      case self::FORMAT_USER_FRIENDLY:
-        if ($this->userFriendlyFormatter === null) {
-          $this->userFriendlyFormatter = new UserFriendlyFormatter();
-        }
-        $data = $this->userFriendlyFormatter->get($object);
-        break;
-    }
-    
-    FileDescriptorManager::write($this->getWriteFD(), $data);
-  }
-  
-  /**
-   * We modify and / or wrap exceptions to keep track of all of the
-   * processes that it passes through.  This is because the exception
-   * will be written by the outer-most instance of Omni, but may occur in
-   * a nested process.
-   */
-  private function handleExceptionWritten(Exception $ex) {
-    if (!($ex instanceof ProcessAwareException)) {
-      $ex = new ProcessAwareException($ex);
-    }
-    
-    $ex->addProcessTrace("written to endpoint from PID ".posix_getpid());
-    return $ex;
-  }
-  
-  private function lengthPrefix($data) {
-    $length = strlen($data);
-    $length_byte_1 = ($length >> 24) & 0xFF;
-    $length_byte_2 = ($length >> 16) & 0xFF;
-    $length_byte_3 = ($length >> 8) & 0xFF;
-    $length_byte_4 = $length & 0xFF;
-    return 
-      chr($length_byte_1).
-      chr($length_byte_2).
-      chr($length_byte_3).
-      chr($length_byte_4).
-      $data;
-  }
-  
-  public function read() {
-    $fd = $this->getReadFD();
-    
-    omni_trace("called read for FD $fd");
-    
-    switch ($this->writeFormat) {
-      case self::FORMAT_PHP_SERIALIZATION:
-        FileDescriptorManager::setBlocking($fd, true);
-        $data = $this->readLengthPrefixed($fd);
-        return unserialize($data);
-      case self::FORMAT_LENGTH_PREFIXED_JSON:
-        FileDescriptorManager::setBlocking($fd, true);
-        $data = $this->readLengthPrefixed($fd);
-        return json_decode($data);
-      case self::FORMAT_BYTE_STREAM:
-        FileDescriptorManager::setBlocking($fd, false);
-        $data = FileDescriptorManager::read($fd, 4096);
-        if ($data === true) {
-          // No data available yet (EAGAIN).
-          return '';
-        } else {
-          return $data;
-        }
-      case self::FORMAT_NEWLINE_SEPARATED:
-        FileDescriptorManager::setBlocking($fd, true);
-        $buffer = '';
-        $char = null;
-        while ($char !== "\n") {
-          $char = FileDescriptorManager::read($fd, 1);
-          if ($char !== "\n") {
-            $buffer .= $char;
-          }
-        }
-        return $buffer;
-      case self::FORMAT_NULL_SEPARATED:
-        FileDescriptorManager::setBlocking($fd, true);
-        $buffer = '';
-        $char = null;
-        while ($char !== "\0") {
-          $char = FileDescriptorManager::read($fd, 1);
-          if ($char !== "\0") {
-            $buffer .= $char;
-          }
-        }
-        return $buffer;
-      default:
-        throw new Exception('Unknown read format '.$this->readFormat);
-    }
-  }
-
-  private function readLengthPrefixed($fd) {
-    $length_bytes = FileDescriptorManager::read($fd, 4);
-    
-    $length_byte_1 = ord($length_bytes[0]);
-    $length_byte_2 = ord($length_bytes[1]);
-    $length_byte_3 = ord($length_bytes[2]);
-    $length_byte_4 = ord($length_bytes[3]);
-    $length = 
-      ($length_byte_1 << 24) |
-      ($length_byte_2 << 16) |
-      ($length_byte_3 << 8) |
-      $length_byte_4;
-    return FileDescriptorManager::read($fd, $length);
   }
   
   public function close() {
@@ -318,6 +173,22 @@ final class Endpoint extends Phobject {
       FileDescriptorManager::close($this->getWriteFD());
       $this->nativePipe['write'] = null;
     }
+  }
+  
+  
+  /* ----- ( BaseEndpoint ) ------------------------------------------------- */
+  
+  
+  protected function writeInternal($data) {
+    return FileDescriptorManager::write($this->getWriteFD(), $data);
+  }
+  
+  protected function setReadBlockingInternal($blocking) {
+    FileDescriptorManager::setBlocking($this->getReadFD(), $blocking);
+  }
+    
+  protected function readInternal($length) {
+    return FileDescriptorManager::read($this->getReadFD(), $length);
   }
   
 }
