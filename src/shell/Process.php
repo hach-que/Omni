@@ -86,6 +86,13 @@ final class Process
     }
     
     $executable = head($this->arguments);
+    
+    if ($executable instanceof OmniFunction) {
+      $this->type = 'function';
+      $this->resolvedExecutable = $executable->getOriginal();
+      return $this->type;
+    }
+    
     if ($this->resolvedExecutable === null) {
       $this->resolvedExecutable = Filesystem::resolveBinary($executable);
     }
@@ -119,6 +126,9 @@ final class Process
         break;
       case 'native':
         $target = $this->createNativeLaunch($this->resolvedExecutable, $this->arguments);
+        break;
+      case 'function':
+        $target = new FunctionLaunchable($executable, $this->arguments);
         break;
     }
     

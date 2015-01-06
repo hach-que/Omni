@@ -217,6 +217,32 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     }
   }
   
+  public function launchPipeFunction(
+    Job $job,
+    OmniFunction $function,
+    array $argv,
+    Endpoint $stdin,
+    Endpoint $stdout) {
+    
+    omni_trace("preparing forked process");
+    
+    $this->prepareForkedProcess($job);
+    
+    omni_trace("beginning pipe function");
+    
+    while (true) {
+      try {
+        $obj = $stdin->read();
+        
+        $result = $function->callIterator($this, $argv, $obj);
+        
+        $stdout->write($result);
+      } catch (NativePipeClosedException $ex) {
+        omni_exit(0);
+      }
+    }
+  }
+  
   public function launchScript(
     Job $job,
     $script_path,

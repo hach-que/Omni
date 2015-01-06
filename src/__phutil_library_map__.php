@@ -35,6 +35,7 @@ phutil_register_library_map(array(
     'ForeachVisitor' => 'shell/visitor/ForeachVisitor.php',
     'FragmentVisitor' => 'shell/visitor/FragmentVisitor.php',
     'FragmentsVisitor' => 'shell/visitor/FragmentsVisitor.php',
+    'FunctionLaunchable' => 'shell/launchable/FunctionLaunchable.php',
     'FunctionVisitor' => 'shell/visitor/FunctionVisitor.php',
     'FunctionalTestCase' => '__tests__/FunctionalTestCase.php',
     'FuturesBuiltin' => 'builtin/FuturesBuiltin.php',
@@ -130,6 +131,10 @@ phutil_register_library_map(array(
     'ForeachVisitor' => 'Visitor',
     'FragmentVisitor' => 'Visitor',
     'FragmentsVisitor' => 'Visitor',
+    'FunctionLaunchable' => array(
+      'Phobject',
+      'LaunchableInterface',
+    ),
     'FunctionVisitor' => 'Visitor',
     'FunctionalTestCase' => 'PhutilTestCase',
     'FuturesBuiltin' => 'Builtin',

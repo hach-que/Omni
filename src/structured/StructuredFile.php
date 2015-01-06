@@ -3,9 +3,30 @@
 final class StructuredFile extends Phobject {
 
   private $path;
+  private $originalName;
   
-  public function __construct($path) {
+  public function __construct($path, $original_name = null) {
     $this->path = Filesystem::resolvePath($path);
+    $this->originalName = $original_name;
+  }
+  
+  public function __toString() {
+    return $this->getColoredFileName();
+  }
+  
+  public function getColoredFileName() {
+    $prefix = '';
+    if (!$this->getLinkTargetExists()) {
+      $prefix = "\x1B[33;1m\x1B[41;1m";
+    } else if ($this->isSymbolicLink()) {
+      $prefix = "\x1B[36;1m";
+    } else if ($this->isDirectory()) {
+      $prefix = "\x1B[34;1m";
+    } else {
+      $prefix = "\x1B[37m";
+    }
+    
+    return $prefix.$this->getFileName()."\x1B[0m";
   }
   
   public function getAbsolutePath() {
@@ -17,7 +38,40 @@ final class StructuredFile extends Phobject {
   }
   
   public function getFileName() {
+    if ($this->originalName) {
+      return $this->originalName;
+    }
+    
     return basename($this->path);
+  }
+  
+  public function getLinkTarget() {
+    if ($this->isSymbolicLink()) {
+      return readlink($this->path);
+    }
+    
+    return null;
+  }
+  
+  public function getLinkTargetExists() {
+    if ($this->isSymbolicLink()) {
+      return Filesystem::pathExists(readlink($this->path));
+    }
+    
+    return $this->getExists();
+  }
+  
+  public function getMetaTarget() {
+    // Return real file name for "." and ".." entries.
+    if ($this->originalName !== basename($this->path)) {
+      return new StructuredFile($this->path);
+    }
+    
+    if ($this->isSymbolicLink()) {
+      return new StructuredFile($this->getLinkTarget());
+    }
+    
+    return null;
   }
   
   public function getParentDirectory() {
@@ -57,12 +111,57 @@ final class StructuredFile extends Phobject {
     return idx(lstat($this->path), 'mode');
   }
   
-  public function getPermissionsString() {
+  public function getPermissionsOctalString() {
     if (!$this->getExists()) {
       return null;
     }
   
     return substr(sprintf('%o', $this->getPermissions()), -4);
+  }
+  
+  public function getPermissionsCharacterString() {
+    if (!$this->getExists()) {
+      return null;
+    }
+    
+    $user_read = 0400;
+    $user_write = 0200;
+    $user_execute = 0100;
+    $group_read = 0040;
+    $group_write = 0020;
+    $group_execute = 0010;
+    $other_read = 0004;
+    $other_write = 0002;
+    $other_execute = 0001;
+    $setuid = 04000;
+    $setgid = 02000;
+    $sticky = 01000;
+    
+    $perms = $this->getPermissions();
+    $buffer = '';
+    $buffer .= ($perms & $user_read) ? 'r' : '-';
+    $buffer .= ($perms & $user_write) ? 'w' : '-';
+    $buffer .= ($perms & $user_execute) ? 'x' : '-';
+    $buffer .= ($perms & $group_read) ? 'r' : '-';
+    $buffer .= ($perms & $group_write) ? 'w' : '-';
+    $buffer .= ($perms & $group_execute) ? 'x' : '-';
+    $buffer .= ($perms & $other_read) ? 'r' : '-';
+    $buffer .= ($perms & $other_write) ? 'w' : '-';
+    $buffer .= ($perms & $other_execute) ? 'x' : '-';
+    
+    if ($perms & $setuid) {
+      $buffer[2] = ($perms & $user_execute) ? 's' : 'S';
+    }
+    
+    if ($perms & $setgid) {
+      $buffer[5] = ($perms & $group_execute) ? 's' : 'S';
+    }
+    
+    if ($perms & $sticky) {
+      $buffer[8] = ($perms & $other_execute) ? 't' : 'T';
+    }
+    
+    return $buffer;
   }
   
   public function getCreationTime() {

@@ -25,7 +25,7 @@ final class UserFriendlyFormatter extends Phobject {
           return $this->indent('false', $prefix).$newline;
         } 
       } else {
-        return $this->indent((string)$object, $prefix).$newline;
+        return $this->indent((string)$object, $prefix);
       }
     } catch (Exception $e) {
       if (is_array($object)) {

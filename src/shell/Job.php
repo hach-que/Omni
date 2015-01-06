@@ -107,7 +107,11 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   }
   
   public function addStage($stage) {
-    $this->stages[] = $stage;
+    if ($stage instanceof OmniFunction) {
+      $this->stages[] = new Process(array($stage), $stage->getOriginal());
+    } else {
+      $this->stages[] = $stage;
+    }
   }
   
   public function getStages() {
