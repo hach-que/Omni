@@ -9,8 +9,22 @@
  */
 final class UserFriendlyFormatter extends Phobject {
 
+  private $seen = null;
+
+  public function clearSeenCache() {
+    $this->seen = array();
+  }
+  
   public function get($object, $prefix = '', $no_newline = false) {
     $newline = $no_newline ? '' : "\n";
+    
+    if ((is_array($object) || is_object($object)) && 
+      in_array($object, $this->seen)) {
+      
+      return '<already shown>'.$newline;
+    }
+    
+    $this->seen[] = $object;
     
     if ($object instanceof Exception) {
       return $this->getException($object, $prefix);
@@ -122,9 +136,16 @@ final class UserFriendlyFormatter extends Phobject {
         $field_name = substr($name, 3);
         $upper_field_name = strtoupper($field_name[0]).substr($field_name, 1);
         $field_name = strtolower($field_name[0]).substr($field_name, 1);
+        
+        try {
+          $value = $method->invoke($object);
+        } catch (Exception $ex) {
+          $value = $ex;
+        }
+        
         $array[$field_name] = array(
           'writable' => idx($methods, 'set'.$upper_field_name) !== null,
-          'value' => $method->invoke($object),
+          'value' => $value,
           'php-type' => 'method-property',
           'php-name' => $name,
           'php-write-name' => 'set'.$upper_field_name,
@@ -137,9 +158,16 @@ final class UserFriendlyFormatter extends Phobject {
           continue;
         }
         $field_name = 'is'.substr($name, 2);
+        
+        try {
+          $value = $method->invoke($object);
+        } catch (Exception $ex) {
+          $value = $ex;
+        }
+        
         $array[$field_name] = array(
           'writable' => idx($methods, 'set'.substr($name, 2)),
-          'value' => $method->invoke($object),
+          'value' => $value,
           'php-type' => 'method-property',
           'php-name' => $name,
         );

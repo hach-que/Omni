@@ -77,6 +77,7 @@ abstract class BaseEndpoint extends Phobject {
         if ($this->userFriendlyFormatter === null) {
           $this->userFriendlyFormatter = new UserFriendlyFormatter();
         }
+        $this->userFriendlyFormatter->clearSeenCache();
         $data = $this->userFriendlyFormatter->get($object);
         break;
     }
