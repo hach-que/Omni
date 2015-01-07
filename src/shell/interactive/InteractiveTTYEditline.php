@@ -9,6 +9,7 @@ final class InteractiveTTYEditline extends Phobject {
   private $raw = false;
   private $continuingLine = false;
   private $continuingLineBuffer = '';
+  private $visibleSuggestionsEnabled = false;
   
   public function setRaw($raw) {
     $this->raw = $raw;
@@ -40,7 +41,7 @@ final class InteractiveTTYEditline extends Phobject {
       editline_init();
       editline_begin($this->getPrompt());
       
-      $this->renderSuggestions('');
+      $this->renderSuggestions('', 0);
     }
     
     while (!$this->shell->wantsToExit()) {
@@ -72,13 +73,13 @@ final class InteractiveTTYEditline extends Phobject {
         switch ($result['status']) {
           case 'typing':
           case 'cancelled':
-            $this->renderSuggestions($result['input']);
+            $this->renderSuggestions($result['input'], $result['cursor']);
             break;
           case 'complete':
             $this->handleCommand($result['input']);
             
             if (!$this->shell->wantsToExit()) {
-              $this->renderSuggestions('');
+              $this->renderSuggestions('', 0);
             }
             break;
           default:
@@ -90,12 +91,19 @@ final class InteractiveTTYEditline extends Phobject {
     $this->shell->finalize();
   }
   
-  public function renderSuggestions($input) {
-    return;
-  
-    $suggestions = $this->getSuggestionsForInput($input);
+  public function renderSuggestions($input, $position) {
+    $engine = new SuggestionEngine();
+    $suggestions = $engine->getSuggestions($this->shell, $input, $position);
     
     $this->calculateAutocomplete($input, $suggestions);
+    
+    if (!$this->visibleSuggestionsEnabled) {
+      return;
+    }
+    
+    if (count($suggestions) > 5) {
+      $suggestions = array_slice($suggestions, 0, 5);
+    }
     
     if ($this->maxSuggestions < count($suggestions)) {
       $this->maxSuggestions = count($suggestions);
@@ -109,7 +117,7 @@ final class InteractiveTTYEditline extends Phobject {
     echo "\x1B8\x1B[1B\x1B[2K";
     echo "\x1B8\x1B[1B-- Suggestions --";
     for ($i = 0; $i < count($suggestions); $i++) {
-      $p = $suggestions[$i];
+      $p = $suggestions[$i]['node_replace'].' - '.$suggestions[$i]['description'];
       $x = $i + 2;
       echo "\x1B8\x1B[".$x."B\x1B[2K";
       echo "\x1B8\x1B[".$x."B".$p;//->getType();
@@ -125,14 +133,7 @@ final class InteractiveTTYEditline extends Phobject {
     $autocomplete = array();
     
     foreach ($suggestions as $suggestion) {
-      if (substr($suggestion, 0, strlen($input)) === $input) {
-        $remaining = substr($suggestion, strlen($input));
-        $space_char = strpos($remaining, ' ', 0);
-        if ($space_char === 0) {
-          continue;
-        }
-        $autocomplete[] = substr($remaining, 0, $space_char);
-      }
+      $autocomplete[] = $suggestion['append'];
     }
     
     editline_autocomplete_set($autocomplete);
@@ -207,19 +208,6 @@ final class InteractiveTTYEditline extends Phobject {
     }
     
     return '[omni] '.$user.'@'.$host.':'.$cwd.'> ';
-  }
-  
-  private function getSuggestionsForInput($input) {
-    list($err, $stdout, $stderr) = 
-      id(new ExecFuture("whatis -s 1 -r ^%s", $input))
-        ->resolve();
-  
-    if ($err !== 0) {
-      return array($input);
-    }
-  
-    $lines = phutil_split_lines($stdout);
-    return array_slice($lines, 0, 5); 
   }
   
 }

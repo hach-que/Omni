@@ -3,6 +3,10 @@
 final class CommandVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
+    if (!$this->getAllowSideEffects()) {
+      throw new EvaluationWouldCauseSideEffectException();
+    }
+  
     $arguments = $this->visitChild($shell, $data['children'][0]);
     
     if ($arguments->has(0)) {

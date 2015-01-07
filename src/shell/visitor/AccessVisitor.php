@@ -12,6 +12,12 @@ final class AccessVisitor extends Visitor {
       $value = $this->visitChild($shell, $data['children'][2]);
     }
     
+    if ($is_assignment) {
+      if (!$this->getAllowSideEffects()) {
+        throw new EvaluationWouldCauseSideEffectException();
+      }
+    }
+    
     if ($parent instanceof ArrayContainer) {
       if ($is_assignment) {
         if ($child === '[]') {

@@ -33,6 +33,16 @@ $result = $args->parsePartial(
       'help'     => 'Print the AST for the specified script file.',
     ),
     array(
+      'name'     => 'ast-locate',
+      'param'    => 'position',
+      'help'     => 'Show the list of nodes present at the specified location in the AST command.',
+    ),
+    array(
+      'name'     => 'suggest',
+      'param'    => 'position',
+      'help'     => 'Use the suggestion engine to show suggestions for the given input.',
+    ),
+    array(
       'name'     => 'simulate-interactive',
       'help'     => 'Simulate commands being typed at the interactive prompt.',
     ),
@@ -68,13 +78,32 @@ if ($args->getArg('bundle')) {
 
 if ($args->getArg('ast-command')) {
   $result = omnilang_parse($args->getArg('ast-command'));
-  print_r($result);
   if ($result === false) {
     echo omnilang_get_error()."\n";
     omni_exit(1);
   } else {
+    if ($args->getArg('ast-locate') !== null) {
+      $engine = new SuggestionEngine();
+      print_r($engine->traverseToPosition($result, $args->getArg('ast-locate')));
+    } else {
+      print_r($result);
+    }
     omni_exit(0);
   }
+}
+
+if ($args->getArg('suggest')) {
+  $length = strlen($args->getArg('suggest'));
+  if ($args->getArg('ast-locate') !== null) {
+    $length = $args->getArg('ast-locate');
+  }
+  $engine = new SuggestionEngine();
+  $suggestions = $engine->getSuggestions(
+    new Shell(), 
+    $args->getArg('suggest'),
+    $length);
+  print_r($suggestions);
+  omni_exit(0);
 }
 
 if ($args->getArg('ast-script')) {

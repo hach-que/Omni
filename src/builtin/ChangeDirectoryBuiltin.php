@@ -16,6 +16,7 @@ final class ChangeDirectoryBuiltin extends Builtin {
     
     return array(
       'stdout' => $stdout->createInboundEndpoint(null, "cd stdout"),
+      'output_new_dir' => !$stdout->isConnectedToTerminal(),
     );
   }
   
@@ -183,7 +184,10 @@ final class ChangeDirectoryBuiltin extends Builtin {
       throw new Exception("Unable to change directory to $current_path");
     }
     
-    $stdout->write(new StructuredFile(getcwd()));
+    if ($prepare_data['output_new_dir']) {
+      $stdout->write(new StructuredFile(getcwd()));
+    }
+    
     $stdout->closeWrite();
   }
 

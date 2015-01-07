@@ -3,6 +3,10 @@
 final class PipelineVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
+    if (!$this->getAllowSideEffects()) {
+      throw new EvaluationWouldCauseSideEffectException();
+    }
+  
     omni_trace("constructing job");
     
     $expression_options = array();

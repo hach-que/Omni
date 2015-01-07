@@ -2,6 +2,17 @@
 
 abstract class Visitor {
   
+  private $allowSideEffects = true;
+  
+  public function setAllowSideEffects($side_effects) {
+    $this->allowSideEffects = $side_effects;
+    return $this;
+  }
+  
+  public function getAllowSideEffects() {
+    return $this->allowSideEffects;
+  }
+  
   public function visit(Shell $shell, array $data) {
     omni_trace("begin visit ".get_class($this));
     
@@ -55,6 +66,7 @@ abstract class Visitor {
     }
     
     $visitor = new $visitor_name();
+    $visitor->setAllowSideEffects($this->getAllowSideEffects());
     return $visitor->visit($shell, $child);
   }
   

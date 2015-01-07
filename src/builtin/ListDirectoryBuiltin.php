@@ -457,7 +457,7 @@ final class ListDirectoryBuiltin extends Builtin {
             }
           }
         } else {
-          if ($this->shouldAdd($parser, $entry)) {
+          if ($this->shouldAdd($parser, $path)) {
             if ($is_raw) {
               $stdout->write(new StructuredFile($path, $path));
             } else {

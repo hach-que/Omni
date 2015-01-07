@@ -3,6 +3,10 @@
 final class ForeachVisitor extends Visitor {
   
   protected function visitImpl(Shell $shell, array $data) {
+    if (!$this->getAllowSideEffects()) {
+      throw new EvaluationWouldCauseSideEffectException();
+    }
+  
     $expression = $this->visitChild($shell, $data['children'][0]);
     if ($expression instanceof ArrayContainer) {
       $expression = $expression->getCopy();
