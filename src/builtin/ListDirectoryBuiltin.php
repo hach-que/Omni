@@ -17,9 +17,9 @@ final class ListDirectoryBuiltin extends Builtin {
     $parser = new PhutilArgumentParser($arguments);
     $parser->parseFull($this->getArguments($shell, $job, array()));
     
-    $type = null;
-    if (!$parser->getArg('raw')) {
-      $type = BaseEndpoint::FORMAT_BYTE_STREAM;
+    $type = BaseEndpoint::FORMAT_BYTE_STREAM;
+    if ($parser->getArg('raw') || !$stdout->isConnectedToTerminal()) {
+      $type = null;
     }
     
     return array(
@@ -396,9 +396,9 @@ final class ListDirectoryBuiltin extends Builtin {
           'is directed at a terminal.'
       ),
       array(
-        'name' => 'header',
+        'name' => 'no-header',
         'help' => 
-          'Show the headers in a long listing format.'
+          'Hide the headers in a long listing format.'
       ),
       array(
         'name'  => 'help',
@@ -497,29 +497,54 @@ final class ListDirectoryBuiltin extends Builtin {
       $view = 'one-file-per-line';
     }
     if ($parser->getArg('lines')) {
-      $view = 'columns'; /* TODO Determine the difference in algorithms 'lines'; */
+      $view = 'lines';
     }
     if ($parser->getArg('long-listing')) {
       $view = 'long-listing';
     }
     
-    // TODO Provide terminal settings on endpoints.
-    $columns = 80;
+    $columns = $stdout->getTerminalColumns();
     
     switch ($view) {
       case 'columns':
+      case 'lines':
         $longest_file_length = $this->findLongestFileLength($all_entries);
         $file_columns = (int)floor($columns / ($longest_file_length + 1));
         if ($file_columns < 1) {
           $file_columns = 1;
         }
         
+        if ($view === 'columns') {
+          // We pivot the data we have based on the number of
+          // columns we'll render.
+          $pivoted_entries = array();
+          $rows = (int)ceil(count($all_entries) / $file_columns);
+          $current_col = 0;
+          $current_row = 0;
+          for ($i = 0; $i < count($all_entries); $i++) {
+            $pivoted_entries[$current_row * $file_columns + $current_col] = $all_entries[$i];
+            
+            $current_row++;
+            if ($current_row >= $rows) {
+              $current_row = 0;
+              $current_col++;
+            }
+          }
+          
+          $all_entries = $pivoted_entries;
+        }
+        
         $last_line = false;
         $current = 0;
-        foreach ($all_entries as $entry) {
-          $filename = $entry->getColoredFileName();
-          $to_pad = $longest_file_length - strlen($entry->getFileName());
-          $filename .= str_pad('', $to_pad);
+        for ($i = 0; $i < count($all_entries); $i++) {
+          $entry = idx($all_entries, $i);
+          if ($entry === null) {
+            $filename = str_pad('', $longest_file_length);
+          } else {
+            $filename = $entry->getColoredFileName();
+            $to_pad = $longest_file_length - strlen($entry->getFileName());
+            $filename .= str_pad('', $to_pad);
+          }
           
           if ($current === $file_columns - 1) {
             $stdout->write($filename."\n");
@@ -543,17 +568,7 @@ final class ListDirectoryBuiltin extends Builtin {
         }
         
         break;
-      case 'lines':
-        /* TODO */
-        break;
       case 'long-listing':
-        $total_blocks = 0;
-        foreach ($all_entries as $entry) {
-          $total_blocks += $entry->getBlocks();
-        }
-        
-        $stdout->write("total ".($total_blocks * 1024 /* block size */)."\n");
-        
         $time_type = 'modified';
         if ($parser->getArg('time') === 'mtime' ||
           $parser->getArg('time') === 'modified' ||
@@ -577,7 +592,7 @@ final class ListDirectoryBuiltin extends Builtin {
           $time_title = 'Created';
         }
         
-        $show_headers = $parser->getArg('header');
+        $show_headers = !$parser->getArg('no-header');
         
         $link_title = 'L';
         if ($show_headers) {
