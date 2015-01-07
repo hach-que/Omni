@@ -11,7 +11,8 @@ class Pipe extends Phobject implements PipeInterface {
   private $outboundEndpoints = array();
   private $controllerPid = null;
   private $controllerControlPipe = null;
-  private $controllerDataPipe = null;
+  private $controllerDataToControllerPipe = null;
+  private $controllerDataFromControllerPipe = null;
   private $roundRobinCounter = 0;
   private $defaultInboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
   private $defaultOutboundFormat = Endpoint::FORMAT_PHP_SERIALIZATION;
@@ -97,6 +98,34 @@ class Pipe extends Phobject implements PipeInterface {
     return $this->controllerPid !== null;
   }
   
+  public function isConnectedToTerminal() {
+    if ($this->controllerPid === null) {
+      return null;
+    }
+    
+    if ($this->controllerPid === posix_getpid()) {
+      foreach ($this->inboundEndpoints as $endpoint) {
+        if ($endpoint->getOwnerSpecialType() === 'stdin' ||
+          $endpoint->getOwnerSpecialType() === 'stdout' ||
+          $endpoint->getOwnerSpecialType() === 'stderr') {
+          return true;
+        }
+      }
+      
+      foreach ($this->outboundEndpoints as $endpoint) {
+        if ($endpoint->getOwnerSpecialType() === 'stdin' ||
+          $endpoint->getOwnerSpecialType() === 'stdout' ||
+          $endpoint->getOwnerSpecialType() === 'stderr') {
+          return true;
+        }
+      }
+      
+      return false;
+    } else {
+      return $this->dispatchControlSelfGetCallEvent(__FUNCTION__);
+    }
+  }
+  
   public function getControllerProcess($start_if_not_started = false) {
     if ($start_if_not_started) {
       $this->startControllerIfNotRunning();
@@ -134,7 +163,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint->setOwnerIndex($idx);
     
     // Send control event to create inbound endpoint.
-    $this->controllerDataPipe->write(array(
+    $this->controllerDataToControllerPipe->write(array(
       'type' => 'create-endpoint',
       'endpoint-type' => 'inbound',
       'name' => $name,
@@ -142,6 +171,7 @@ class Pipe extends Phobject implements PipeInterface {
       'write-format' => $format,
       'index' => $idx,
       'closable' => true,
+      'special-type' => null,
     ));
     FileDescriptorManager::sendFD(
       $this->controllerControlPipe['write'],
@@ -176,7 +206,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint->setOwnerIndex($idx);
     
     // Send control event to create inbound endpoint.
-    $this->controllerDataPipe->write(array(
+    $this->controllerDataToControllerPipe->write(array(
       'type' => 'create-endpoint',
       'endpoint-type' => 'outbound',
       'name' => $name,
@@ -184,6 +214,7 @@ class Pipe extends Phobject implements PipeInterface {
       'write-format' => $format,
       'index' => $idx,
       'closable' => true,
+      'special-type' => null,
     ));
     FileDescriptorManager::sendFD(
       $this->controllerControlPipe['write'],
@@ -212,6 +243,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint = id(new Endpoint(array('read' => FileDescriptorManager::STDIN_FILENO, 'write' => null)))
       ->setOwnerPipe($this)
       ->setOwnerType('inbound')
+      ->setOwnerSpecialType('stdin')
       ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format)
@@ -221,7 +253,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint->setOwnerIndex($idx);
     
     // Send control event to create inbound endpoint.
-    $this->controllerDataPipe->write(array(
+    $this->controllerDataToControllerPipe->write(array(
       'type' => 'create-endpoint',
       'endpoint-type' => 'inbound',
       'name' => $name,
@@ -229,6 +261,7 @@ class Pipe extends Phobject implements PipeInterface {
       'write-format' => $format,
       'index' => $idx,
       'closable' => false,
+      'special-type' => 'stdin',
     ));
     FileDescriptorManager::sendFD(
       $this->controllerControlPipe['write'],
@@ -256,6 +289,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint = id(new Endpoint(array('read' => null, 'write' => FileDescriptorManager::STDOUT_FILENO)))
       ->setOwnerPipe($this)
       ->setOwnerType('outbound')
+      ->setOwnerSpecialType('stdout')
       ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format);
@@ -264,7 +298,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint->setOwnerIndex($idx);
     
     // Send control event to create inbound endpoint.
-    $this->controllerDataPipe->write(array(
+    $this->controllerDataToControllerPipe->write(array(
       'type' => 'create-endpoint',
       'endpoint-type' => 'outbound',
       'name' => $name,
@@ -272,6 +306,7 @@ class Pipe extends Phobject implements PipeInterface {
       'write-format' => $format,
       'index' => $idx,
       'closable' => false,
+      'special-type' => 'stdout',
     ));
     FileDescriptorManager::sendFD(
       $this->controllerControlPipe['write'],
@@ -299,6 +334,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint = id(new Endpoint(array('read' => null, 'write' => FileDescriptorManager::STDERR_FILENO)))
       ->setOwnerPipe($this)
       ->setOwnerType('outbound')
+      ->setOwnerSpecialType('stderr')
       ->setName($name)
       ->setReadFormat($format)
       ->setWriteFormat($format);
@@ -307,7 +343,7 @@ class Pipe extends Phobject implements PipeInterface {
     $endpoint->setOwnerIndex($idx);
     
     // Send control event to create inbound endpoint.
-    $this->controllerDataPipe->write(array(
+    $this->controllerDataToControllerPipe->write(array(
       'type' => 'create-endpoint',
       'endpoint-type' => 'outbound',
       'name' => $name,
@@ -315,6 +351,7 @@ class Pipe extends Phobject implements PipeInterface {
       'write-format' => $format,
       'index' => $idx,
       'closable' => false,
+      'special-type' => 'stderr',
     ));
     FileDescriptorManager::sendFD(
       $this->controllerControlPipe['write'],
@@ -345,7 +382,20 @@ class Pipe extends Phobject implements PipeInterface {
       'function' => $function_name,
       'argv' => func_get_args(),
     );
-    $this->controllerDataPipe->write($msg);
+    $this->controllerDataToControllerPipe->write($msg);
+  }
+  
+  /**
+   * Constructs a "self get call" event to the controller.
+   */
+  public function dispatchControlSelfGetCallEvent($function_name) {
+    $msg = array(
+      'type' => 'self-get-call',
+      'function' => $function_name,
+      'argv' => func_get_args(),
+    );
+    $this->controllerDataToControllerPipe->write($msg);
+    return $this->controllerDataFromControllerPipe->read();
   }
   
   /**
@@ -359,7 +409,22 @@ class Pipe extends Phobject implements PipeInterface {
       'function' => $function_name,
       'argv' => $argv,
     );
-    $this->controllerDataPipe->write($msg);
+    $this->controllerDataToControllerPipe->write($msg);
+  }
+  
+  /**
+   * Constructs an "endpoint get call" event to the controller.
+   */
+  public function dispatchControlEndpointGetCallEvent($index, $type, $function_name, $argv) {
+    $msg = array(
+      'type' => 'endpoint-get-call',
+      'index' => $index,
+      'endpoint-type' => $type,
+      'function' => $function_name,
+      'argv' => $argv,
+    );
+    $this->controllerDataToControllerPipe->write($msg);
+    return $this->controllerDataFromControllerPipe->read();
   }
   
   /**
@@ -369,12 +434,14 @@ class Pipe extends Phobject implements PipeInterface {
    */
   private function handleControlEvent() {
     try {
-      $call = $this->controllerDataPipe->read();
+      $call = $this->controllerDataToControllerPipe->read();
     } catch (NativePipeClosedException $ex) {
       // Unable to read any more data from the control stream.
-      $this->controllerDataPipe->close();
+      $this->controllerDataToControllerPipe->close();
+      $this->controllerDataFromControllerPipe->close();
       FileDescriptorManager::close($this->controllerControlPipe['read']);
-      $this->controllerDataPipe = null;
+      $this->controllerDataToControllerPipe = null;
+      $this->controllerDataFromControllerPipe = null;
       $this->controllerControlPipe = null;
       return;
     }
@@ -382,6 +449,10 @@ class Pipe extends Phobject implements PipeInterface {
     switch ($call['type']) {
       case 'self-call':
         call_user_func_array(array($this, $call['function']), $call['argv']);
+        break;
+      case 'self-get-call':
+        $this->controllerDataFromControllerPipe->write(
+          call_user_func_array(array($this, $call['function']), $call['argv']));
         break;
       case 'create-endpoint':
         if ($call['endpoint-type'] === 'inbound') {
@@ -405,7 +476,8 @@ class Pipe extends Phobject implements PipeInterface {
           ->setWriteFormat($call['write-format'])
           ->setClosable($call['closable'])
           ->setOwnerPipe($this)
-          ->setOwnerType($call['endpoint-type']);
+          ->setOwnerType($call['endpoint-type'])
+          ->setOwnerSpecialType($call['special-type']);
         // We skip setOwnerIndex so that the controller
         // doesn't use remoting.
         if ($call['endpoint-type'] === 'inbound') {
@@ -428,6 +500,23 @@ class Pipe extends Phobject implements PipeInterface {
               $this->outboundEndpoints[$call['index']],
               $call['function']),
             $call['argv']);
+        }
+        break;
+      case 'endpoint-get-call':
+        if ($call['endpoint-type'] === 'inbound') {
+          $this->controllerDataFromControllerPipe->write(
+            call_user_func_array(
+              array(
+                $this->inboundEndpoints[$call['index']],
+                $call['function']),
+              $call['argv']));
+        } else {
+          $this->controllerDataFromControllerPipe->write(
+            call_user_func_array(
+              array(
+                $this->outboundEndpoints[$call['index']],
+                $call['function']),
+              $call['argv']));
         }
         break;
       default:
@@ -481,8 +570,11 @@ class Pipe extends Phobject implements PipeInterface {
     
     omni_trace("creating native data pipe");
     
-    $this->controllerDataPipe = new Endpoint();
-    $this->controllerDataPipe->instantiatePipe();
+    $this->controllerDataToControllerPipe = new Endpoint();
+    $this->controllerDataToControllerPipe->instantiatePipe();
+    
+    $this->controllerDataFromControllerPipe = new Endpoint();
+    $this->controllerDataFromControllerPipe->instantiatePipe();
     
     omni_trace("forking omni for pipe controller");
     
@@ -504,7 +596,8 @@ class Pipe extends Phobject implements PipeInterface {
       
       FileDescriptorManager::close(
         $this->controllerControlPipe['write']);
-      $this->controllerDataPipe->closeWrite();
+      $this->controllerDataToControllerPipe->closeWrite();
+      $this->controllerDataFromControllerPipe->closeRead();
       
       omni_trace("updating pipe controller forever");
       
@@ -525,7 +618,8 @@ class Pipe extends Phobject implements PipeInterface {
       
       FileDescriptorManager::close(
         $this->controllerControlPipe['read']);
-      $this->controllerDataPipe->closeRead();
+      $this->controllerDataToControllerPipe->closeRead();
+      $this->controllerDataFromControllerPipe->closeWrite();
       
       omni_trace("setting pipe controller pid");
       
@@ -572,9 +666,9 @@ class Pipe extends Phobject implements PipeInterface {
       $outbound_fds[$key] = $endpoint->getWriteFD();
     }
     
-    if ($this->controllerDataPipe !== null) {
+    if ($this->controllerDataToControllerPipe !== null) {
       omni_trace("add controller data pipe");
-      $inbound_fds[] = $this->controllerDataPipe->getReadFD();
+      $inbound_fds[] = $this->controllerDataToControllerPipe->getReadFD();
     }
     
     if ($real_inbound_endpoints === 0) {
@@ -635,8 +729,8 @@ class Pipe extends Phobject implements PipeInterface {
     // until we've handled them all.  We return here so that update()
     // will be called to pull all control events from the data pipe
     // before we handle any actual objects.
-    if ($this->controllerDataPipe !== null) {
-      if (idx($inbound_fds, $this->controllerDataPipe->getReadFD(), false)) {
+    if ($this->controllerDataToControllerPipe !== null) {
+      if (idx($inbound_fds, $this->controllerDataToControllerPipe->getReadFD(), false)) {
         omni_trace("handling control event...");
         $this->handleControlEvent();
         return true;

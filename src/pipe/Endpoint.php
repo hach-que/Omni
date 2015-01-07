@@ -14,6 +14,7 @@ final class Endpoint extends BaseEndpoint {
   private $ownerPipe = null;
   private $ownerIndex = null;
   private $ownerType = null;
+  private $ownerSpecialType = null;
 
   public function __construct($pipe = null) {
     if ($pipe === null) {
@@ -43,6 +44,72 @@ final class Endpoint extends BaseEndpoint {
       func_get_args());
   }
   
+  private function remoteGetCall($function_name) {
+    if (!$this->isRemoted()) {
+      throw new Exception('remoteGetCall called on non-remoted endpoint');
+    }
+    
+    return $this->ownerPipe->dispatchControlEndpointGetCallEvent(
+      $this->ownerIndex,
+      $this->ownerType,
+      $function_name,
+      func_get_args());
+  }
+  
+  private function remotePipeGetCall($function_name) {
+    if (!$this->isRemoted()) {
+      throw new Exception('remotePipeGetCall called on non-remoted endpoint');
+    }
+    
+    return $this->ownerPipe->dispatchControlSelfGetCallEvent(
+      $function_name,
+      func_get_args());
+  }
+  
+  public function isConnectedToTerminal() {
+    if ($this->isRemoted()) {
+      return $this->remotePipeGetCall("isConnectedToTerminal");
+    }
+    
+    return $this->ownerPipe->isConnectedToTerminal();
+  }
+  
+  public function getTerminalColumns() {
+    if ($this->isRemoted()) {
+      return $this->remoteGetCall(__FUNCTION__);
+    }
+    
+    if (!$this->isConnectedToTerminal()) {
+      return false;
+    }
+    
+    if (tc_tgetent(getenv("TERM"))) {
+      $cols = tc_tgetnum("columns");
+      omni_trace("got columns: ".$cols);
+      return $cols;
+    } else {
+      return null;
+    }
+  }
+  
+  public function getTerminalLines() {
+    if ($this->isRemoted()) {
+      return $this->remoteGetCall(__FUNCTION__);
+    }
+    
+    if (!$this->isConnectedToTerminal()) {
+      return false;
+    }
+    
+    if (tc_tgetent(getenv("TERM"))) {
+      $lines = tc_tgetnum("lines");
+      omni_trace("got lines: ".$lines);
+      return $lines;
+    } else {
+      return null;
+    }
+  }
+  
   public function setOwnerPipe(Pipe $pipe) {
     $this->ownerPipe = $pipe;
     return $this;
@@ -56,6 +123,15 @@ final class Endpoint extends BaseEndpoint {
   public function setOwnerType($type) {
     $this->ownerType = $type;
     return $this;
+  }
+  
+  public function setOwnerSpecialType($type) {
+    $this->ownerSpecialType = $type;
+    return $this;
+  }
+  
+  public function getOwnerSpecialType() {
+    return $this->ownerSpecialType;
   }
   
   public function setName($name) {
