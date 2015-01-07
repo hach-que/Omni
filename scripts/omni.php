@@ -9,7 +9,7 @@ sanity_check_environment();
 
 require_once dirname(__FILE__).'/__init_script__.php';
 
-ini_set('memory_limit', -1);
+ini_set('memory_limit', '128M');
 
 $args = new PhutilArgumentParser($argv);
 $args->parseStandardArguments();
