@@ -10,10 +10,6 @@ final class StructuredFile extends Phobject {
     $this->originalName = $original_name;
   }
   
-  public function __toString() {
-    return $this->getColoredFileName();
-  }
-  
   public function getColoredFileName() {
     $prefix = '';
     if (!$this->getLinkTargetExists()) {
@@ -55,7 +51,12 @@ final class StructuredFile extends Phobject {
   
   public function getLinkTargetExists() {
     if ($this->isSymbolicLink()) {
-      return Filesystem::pathExists(readlink($this->path));
+      $link = $this->getLinkTarget();
+      if ($link[0] === '/') {
+        return Filesystem::pathExists($link);
+      } else {
+        return Filesystem::pathExists($this->getParentDirectory()."/".$link);
+      }
     }
     
     return $this->getExists();
@@ -68,7 +69,12 @@ final class StructuredFile extends Phobject {
     }
     
     if ($this->isSymbolicLink()) {
-      return new StructuredFile($this->getLinkTarget());
+      $link = $this->getLinkTarget();
+      if ($link[0] === '/') {
+        return new StructuredFile($link, $link);
+      } else {
+        return new StructuredFile($this->getParentDirectory()."/".$link, $link);
+      }
     }
     
     return null;
