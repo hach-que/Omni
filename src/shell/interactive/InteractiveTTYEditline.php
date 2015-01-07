@@ -91,6 +91,8 @@ final class InteractiveTTYEditline extends Phobject {
   }
   
   public function renderSuggestions($input) {
+    return;
+  
     $suggestions = $this->getSuggestionsForInput($input);
     
     $this->calculateAutocomplete($input, $suggestions);
