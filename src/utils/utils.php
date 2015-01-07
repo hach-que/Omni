@@ -3,9 +3,11 @@
 final class OmniTrace extends Phobject {
 
   private static $isTracing = false;
+  private static $traceDirectory = null;
   
   public static function enableTracing() {
     self::$isTracing = true;
+    self::$traceDirectory = getcwd();
     
     if (function_exists("editline_enable_tracing")) {
       editline_enable_tracing();
@@ -27,6 +29,10 @@ final class OmniTrace extends Phobject {
   public static function isTracing() {
     return self::$isTracing;
   }
+  
+  public static function getTraceDirectory() {
+    return self::$traceDirectory;
+  }
 
 }
 
@@ -42,9 +48,11 @@ function omni_exit($code) {
 function omni_trace($message) {
   if (OmniTrace::isTracing()) {
     $pid = posix_getpid();
-    $file = fopen($pid.".trace", 'a');
-    fwrite($file, $message."\n");
-    fclose($file);
+    $file = @fopen(OmniTrace::getTraceDirectory()."/".$pid.".trace", 'a');
+    if ($file) {
+      fwrite($file, $message."\n");
+      fclose($file);
+    }
 
     static $stderr;
     $stderr = fopen('php://stderr', 'w+');
