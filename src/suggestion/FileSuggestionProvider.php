@@ -16,7 +16,7 @@ final class FileSuggestionProvider extends SuggestionProvider {
     $base = implode("/", $components);
     
     if (strlen($base) !== 0) {
-      if (!Filesystem::pathExists($base)) {
+      if (!(@Filesystem::pathExists($base))) {
         return array();
       }
     }
@@ -30,7 +30,7 @@ final class FileSuggestionProvider extends SuggestionProvider {
     }
     
     try {
-      $entries = Filesystem::listDirectory($base);
+      $entries = @Filesystem::listDirectory($base);
     } catch (Exception $ex) {
       return array();
     }
