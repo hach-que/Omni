@@ -69,7 +69,7 @@ EOF;
       }
     }
     
-    $stdout->write(Futures($futures));
+    $stdout->write(new FutureIterator($futures));
     
     $stdout->closeWrite();
   }
