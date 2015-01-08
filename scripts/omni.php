@@ -52,6 +52,7 @@ if (php_ini_loaded_file() !== $target_php_ini) {
     $target_php_ini,
     '-f',
     phutil_get_library_root('omni').'/../bin/omni',
+    '--',
   );
   foreach (array_slice($argv, 1) as $arg) {
     $new_args[] = $arg;

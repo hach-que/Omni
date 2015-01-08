@@ -70,4 +70,10 @@ abstract class Visitor {
     return $visitor->visit($shell, $child);
   }
   
+  public static function visitCustomChild(Shell $shell, array $child, $allow_side_effects) {
+    $visitor = new StatementsVisitor();
+    $visitor->setAllowSideEffects($allow_side_effects);
+    return $visitor->visitChild($shell, $child);
+  }
+  
 }

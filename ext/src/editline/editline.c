@@ -13,6 +13,7 @@ static EditLine* e = NULL;
 static char* prompt = NULL;
 static bstring* autocomplete_entries = NULL;
 static int autocomplete_count = 0;
+static int autocomplete_needs_visual_suggestions = 0;
 
 static unsigned char* _handle_tab(EditLine* e, int ch) {
   char* buffer;
@@ -27,7 +28,9 @@ static unsigned char* _handle_tab(EditLine* e, int ch) {
     free(buffer);
     return CC_REFRESH;
   } else {
-    // TODO
+    // Just set a flag here and return 'suggestions' from
+    // the editline_read callback.
+    autocomplete_needs_visual_suggestions = 1;
     return CC_REFRESH_BEEP;
   }
 }
@@ -138,7 +141,12 @@ PHP_FUNCTION(editline_read) {
   array_init(return_value);
   switch (done) {
     case 0:
-      add_assoc_string_ex(return_value, "status", 7, "typing", 1);
+      if (autocomplete_needs_visual_suggestions) {
+        autocomplete_needs_visual_suggestions = 0;
+        add_assoc_string_ex(return_value, "status", 7, "visual-suggest", 1);
+      } else {
+        add_assoc_string_ex(return_value, "status", 7, "typing", 1);
+      }
       break;
     case 1:
       add_assoc_string_ex(return_value, "status", 7, "cancelled", 1);
@@ -183,6 +191,19 @@ PHP_FUNCTION(editline_insert) {
   }
   
   el_insertstr(e, text);
+  el_set(e, EL_REFRESH);
+  
+  RETURN_TRUE;
+}
+
+PHP_FUNCTION(editline_reprompt) {
+  TRACE_FUNCTION_CALL();
+  
+  if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
+    RETURN_FALSE;
+  }
+  
+  el_set(e, EL_REFRESH);
   
   RETURN_TRUE;
 }
@@ -226,4 +247,6 @@ PHP_MODULE(editline,
   PHP_FE(editline_end, NULL)
   PHP_FE(editline_history_add, NULL)
   PHP_FE(editline_autocomplete_set, NULL)
+  PHP_FE(editline_insert, NULL)
+  PHP_FE(editline_reprompt, NULL)
 )

@@ -10,6 +10,7 @@ final class InteractiveTTYEditline extends Phobject {
   private $continuingLine = false;
   private $continuingLineBuffer = '';
   private $visibleSuggestionsEnabled = false;
+  private $suggestions = array();
   
   public function setRaw($raw) {
     $this->raw = $raw;
@@ -41,7 +42,8 @@ final class InteractiveTTYEditline extends Phobject {
       editline_init();
       editline_begin($this->getPrompt());
       
-      $this->renderSuggestions('', 0);
+      $this->recalculateSuggestions('', 0);
+      $this->renderVisualSuggestions();
     }
     
     while (!$this->shell->wantsToExit()) {
@@ -71,15 +73,21 @@ final class InteractiveTTYEditline extends Phobject {
         $result = editline_read();
       
         switch ($result['status']) {
+          case 'visual-suggest':
+            $this->clearVisualSuggestions();
+            $this->renderFullSuggestions();
+            break;
           case 'typing':
           case 'cancelled':
-            $this->renderSuggestions($result['input'], $result['cursor']);
+            $this->recalculateSuggestions($result['input'], $result['cursor']);
+            $this->renderVisualSuggestions();
             break;
           case 'complete':
             $this->handleCommand($result['input']);
             
             if (!$this->shell->wantsToExit()) {
-              $this->renderSuggestions('', 0);
+              $this->recalculateSuggestions('', 0);
+              $this->renderVisualSuggestions();
             }
             break;
           default:
@@ -91,15 +99,37 @@ final class InteractiveTTYEditline extends Phobject {
     $this->shell->finalize();
   }
   
-  public function renderSuggestions($input, $position) {
+  public function recalculateSuggestions($input, $position) {
     $engine = new SuggestionEngine();
-    $suggestions = $engine->getSuggestions($this->shell, $input, $position);
+    $this->suggestions = 
+      $engine->getSuggestions($this->shell, $input, $position);
     
-    $this->calculateAutocomplete($input, $suggestions);
+    $this->calculateAutocomplete($input, $this->suggestions);
+  }
+  
+  public function renderFullSuggestions() {
+    $table = id(new PhutilConsoleTable())
+      ->addColumn('name', array('title' => 'Name'))
+      ->addColumn('description', array('title' => 'Description'));
     
+    foreach ($this->suggestions as $suggestion) {
+      $table->addRow(array(
+        'name' => $suggestion['node_replace'],
+        'description' => $suggestion['description'],
+      ));
+    }
+    
+    echo "\n";
+    $table->draw();
+    editline_reprompt();
+  }
+  
+  public function renderVisualSuggestions() {
     if (!$this->visibleSuggestionsEnabled) {
       return;
     }
+    
+    $suggestions = $this->suggestions;
     
     if (count($suggestions) > 5) {
       $suggestions = array_slice($suggestions, 0, 5);
@@ -132,6 +162,21 @@ final class InteractiveTTYEditline extends Phobject {
   public function calculateAutocomplete($input, array $suggestions) {
     $autocomplete = array();
     
+    if (count($suggestions) > 0) {
+      // Limit to only the highest priority.
+      $max_priority = 0;
+      foreach ($suggestions as $key => $value) {
+        if ($value['priority'] > $max_priority) {
+          $max_priority = $value['priority'];
+        }
+      }
+      foreach ($suggestions as $key => $value) {
+        if ($value['priority'] !== $max_priority) {
+          unset($suggestions[$key]);
+        }
+      }
+    }
+    
     foreach ($suggestions as $suggestion) {
       $autocomplete[] = $suggestion['append'];
     }
@@ -139,7 +184,11 @@ final class InteractiveTTYEditline extends Phobject {
     editline_autocomplete_set($autocomplete);
   }
   
-  public function clearSuggestions() {
+  public function clearVisualSuggestions() {
+    if (!$this->visibleSuggestionsEnabled) {
+      return;
+    }
+    
     echo "\x1B7";
     echo "\x1B8\x1B[2K";
     echo "\x1B8\x1B[1B\x1B[2K";
@@ -154,7 +203,7 @@ final class InteractiveTTYEditline extends Phobject {
     omni_trace("clear suggestions");
     
     if (!$this->raw && !$this->simulate) {
-      $this->clearSuggestions();
+      $this->clearVisualSuggestions();
     }
     
     omni_trace("execute input");
@@ -178,15 +227,19 @@ final class InteractiveTTYEditline extends Phobject {
       omni_trace("begin editline again");
       
       if (!$this->simulate) {
-        editline_end();
-        if ($this->continuingLine) {
-          editline_begin(">> ");
-        } else {
-          editline_begin($this->getPrompt());
-        }
+        $this->reprompt();
       }
       
       omni_trace("ready for editline input");
+    }
+  }
+  
+  private function reprompt() {
+    editline_end();
+    if ($this->continuingLine) {
+      editline_begin(">> ");
+    } else {
+      editline_begin($this->getPrompt());
     }
   }
   

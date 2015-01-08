@@ -57,7 +57,7 @@ return                                  { OCOPY(string); yylval.string.value = b
 
 [a-zA-Z0-9_][a-zA-Z_0-9]*               { OCOPY(string); yylval.string.value = bfromcstr(yytext); return VARIABLE; }
 [a-zA-Z\/_\.\~]                         { OCOPY(string); yylval.string.value = bfromcstr(yytext); return FRAGMENT; }
-[a-zA-Z\/_\.\-\~\^][a-zA-Z\/_0-9\.\-\~\^\:]*[a-zA-Z\/_0-9\.\~\^\:]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return FRAGMENT; }
+[a-zA-Z\/_\.\-\~\^\=][a-zA-Z\/_0-9\.\-\~\^\:\=]*[a-zA-Z\/_0-9\.\~\^\:\=]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return FRAGMENT; }
 
 %                                       { OCOPY(token); return PERCENT; }
 \$                                      { OCOPY(token); return DOLLAR; }

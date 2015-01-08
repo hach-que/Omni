@@ -22,7 +22,7 @@ final class SuggestionEngine extends Phobject {
     
     for ($i = count($list) - 1; $i >= 0; $i--) {
       if ($i > 1) {
-        $context = array_slice($list, 0, $i - 1);
+        $context = array_slice($list, 0, $i);
       } else {
         $context = array();
       }
@@ -49,12 +49,9 @@ final class SuggestionEngine extends Phobject {
     omni_trace("looking at ".$current_node['type']);
     omni_trace("parent count is ".count($parents));
     
-    $i = 0;
     foreach ($current_node['children'] as $child) {
-      $i += $child['relative'];
-      
-      $start = $node_start + $i;
-      $end = $node_start + $i + strlen($child['original']);
+      $start = $node_start + $child['relative'];
+      $end = $node_start + $child['relative'] + strlen($child['original']);
     
       omni_trace("checking child ".$child['type']);
       omni_trace("current start is: ".$start);
@@ -65,7 +62,7 @@ final class SuggestionEngine extends Phobject {
       
       if ($start <= $target && $end >= $target) {
         omni_trace("traversing to matched child...");
-        return $this->traverseToPosition($child, $target, $node_start + $i, $next);
+        return $this->traverseToPosition($child, $target, $node_start + $child['relative'], $next);
       }
     }
     
