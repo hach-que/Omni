@@ -18,6 +18,8 @@ final class StructuredFile extends Phobject {
       $prefix = "\x1B[36;1m";
     } else if ($this->isDirectory()) {
       $prefix = "\x1B[34;1m";
+    } else if ($this->isExecutableFile()) {
+      $prefix = "\x1B[32m";
     } else {
       $prefix = "\x1B[37m";
     }
