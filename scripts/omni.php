@@ -9,7 +9,55 @@ sanity_check_environment();
 
 require_once dirname(__FILE__).'/__init_script__.php';
 
-ini_set('memory_limit', '128M');
+$provider = new ExtensionProvider();
+$extension_paths = $provider->loadOrBuild(
+  array(
+    'editline',
+    'tc',
+    'fd',
+    'omni',
+    'omnilang',
+  )
+);
+
+// Re-exec this PHP process if we weren't started with our PHP
+// configuration file.
+$template_php_ini = Filesystem::resolvePath(
+  phutil_get_library_root('omni').'/../conf/php.ini.template');
+$target_php_ini = Filesystem::resolvePath(
+  phutil_get_library_root('omni').'/../conf/php.ini');
+$write_out_php_ini = false;
+if (!file_exists($target_php_ini)) {
+  $write_out_php_ini = true;
+} else {
+  $contents = file_get_contents($target_php_ini);
+  foreach ($extension_paths as $path) {
+    if (substr_count($contents, "extension=$path") === 0) {
+      $write_out_php_ini = true;
+    }
+  }
+}
+if ($write_out_php_ini) {
+  $contents = file_get_contents($template_php_ini);
+  $extension_decls = '';
+  foreach ($extension_paths as $path) {
+    $extension_decls .= "extension=$path\n";
+  }
+  $contents = str_replace('{EXTENSION_PATHS}', $extension_decls, $contents);
+  file_put_contents($target_php_ini, $contents);
+} 
+if (php_ini_loaded_file() !== $target_php_ini) {
+  $new_args = array(
+    '-c',
+    $target_php_ini,
+    '-f',
+    phutil_get_library_root('omni').'/../bin/omni',
+  );
+  foreach (array_slice($argv, 1) as $arg) {
+    $new_args[] = $arg;
+  }
+  pcntl_exec(PHP_BINARY, $new_args);
+}
 
 $args = new PhutilArgumentParser($argv);
 $args->parseStandardArguments();

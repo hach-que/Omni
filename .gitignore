@@ -1,2 +1,6 @@
 /src/.phutil_module_cache
 *.trace
+/ext/src/.kdev4
+/ext/build
+/ext/*.so
+/conf/php.ini
