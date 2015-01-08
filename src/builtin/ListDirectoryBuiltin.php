@@ -443,10 +443,11 @@ final class ListDirectoryBuiltin extends Builtin {
     $all_entries = array();
     
     foreach ($paths as $path) {
-      if (Filesystem::pathExists($path)) {
+      if (@Filesystem::pathExists($path)) {
         if (is_dir($path)) {
           $entries = Filesystem::listDirectory($path);
-          $entries = array('.', '..') + $entries;
+          array_unshift($entries, '..');
+          array_unshift($entries, '.');
           foreach ($entries as $entry) {
             if ($this->shouldAdd($parser, $entry)) {
               if ($is_raw) {
@@ -534,9 +535,16 @@ final class ListDirectoryBuiltin extends Builtin {
           $all_entries = $pivoted_entries;
         }
         
+        $max_key = 0;
+        foreach ($all_entries as $key => $value) {
+          if ($key > $max_key) {
+            $max_key = $key;
+          }
+        }
+        
         $last_line = false;
         $current = 0;
-        for ($i = 0; $i < count($all_entries); $i++) {
+        for ($i = 0; $i < $max_key + 1; $i++) {
           $entry = idx($all_entries, $i);
           if ($entry === null) {
             $filename = str_pad('', $longest_file_length);
