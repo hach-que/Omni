@@ -1,5 +1,5 @@
 #!/bin/omni
 
-$test = "hello"
+: $test = "hello"
 echo $test
 

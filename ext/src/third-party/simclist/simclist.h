@@ -45,6 +45,9 @@ extern "C" {
     /* "inline" and "restrict" are keywords */
 #else
 #   define inline           /* inline */
+#   ifdef restrict
+#   undef restrict
+#   endif
 #   define restrict         /* restrict */
 #endif
 

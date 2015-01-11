@@ -43,6 +43,10 @@ abstract class BaseEndpoint extends Phobject {
   }
 
   protected function convertToStringIfNeeded($object) {
+    if ($object instanceof BytesContainer) {
+      return (string)$object;
+    }
+    
     try {
       assert_stringlike($object);
       return (string)$object;
@@ -62,6 +66,9 @@ abstract class BaseEndpoint extends Phobject {
         $data = $this->lengthPrefix(serialize($object));
         break;
       case self::FORMAT_LENGTH_PREFIXED_JSON:
+        if ($object instanceof BytesContainer) {
+          $object = (string)$object;
+        }
         $data = $this->lengthPrefix(json_encode($object));
         break;
       case self::FORMAT_BYTE_STREAM:
@@ -110,7 +117,7 @@ abstract class BaseEndpoint extends Phobject {
           // No data available yet (EAGAIN).
           return '';
         } else {
-          return $data;
+          return new BytesContainer($data);
         }
       case self::FORMAT_NEWLINE_SEPARATED:
         $this->setReadBlockingInternal(true);

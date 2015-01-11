@@ -38,8 +38,10 @@ final class UserFriendlyFormatter extends Phobject {
         } else {
           return $this->indent('false', $prefix).$newline;
         } 
-      } else {
+      } else if ($object instanceof BytesContainer) {
         return $this->indent((string)$object, $prefix);
+      } else {
+        return $this->indent((string)$object, $prefix).$newline;
       }
     } catch (Exception $e) {
       if (is_array($object)) {

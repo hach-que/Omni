@@ -1,6 +1,6 @@
 #!/bin/omni
 
-$file = $(new -t File test_file)
+: $file = $(new -t File test_file)
 
 if ($file->exists) {
   : $file->delete();

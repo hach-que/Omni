@@ -140,8 +140,8 @@ EOF
     );
     
     foreach ($strings as $str) {
-      $result = omnilang_parse($str);
-      $this->assertTrue(is_array($result), $str);
+      $result = omnilang_parse(': '.$str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
     }
   }
   
@@ -151,8 +151,8 @@ EOF
     );
     
     foreach ($strings as $str) {
-      $result = omnilang_parse($str);
-      $this->assertFalse(is_array($result), $str);
+      $result = omnilang_parse(': '.$str);
+      $this->assertFalse(is_array($result), omnilang_get_error().'~ : '.$str);
     }
   }
   

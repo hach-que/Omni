@@ -92,6 +92,16 @@ $result = $args->parsePartial(
       'help'     => 'Use the suggestion engine to show suggestions for the given input.',
     ),
     array(
+      'name'     => 'lex-command',
+      'param'    => 'lex',
+      'help'     => 'Print the lexical structure for the specified command.',
+    ),
+    array(
+      'name'     => 'lex-script',
+      'param'    => 'lex',
+      'help'     => 'Print the lexical structure for the specified script file.',
+    ),
+    array(
       'name'     => 'simulate-interactive',
       'help'     => 'Simulate commands being typed at the interactive prompt.',
     ),
@@ -162,6 +172,32 @@ if ($args->getArg('ast-script')) {
     echo omnilang_get_error()."\n";
     omni_exit(1);
   } else {
+    omni_exit(0);
+  }
+}
+
+if ($args->getArg('lex-command')) {
+  $result = omnilang_lex($args->getArg('lex-command'));
+  if ($result === false) {
+    echo omnilang_get_error()."\n";
+    omni_exit(1);
+  } else {
+    foreach ($result as $token) {
+      echo $token."\n";
+    }
+    omni_exit(0);
+  }
+}
+
+if ($args->getArg('lex-script')) {
+  $result = omnilang_lex(file_get_contents($args->getArg('lex-script')));
+  if ($result === false) {
+    echo omnilang_get_error()."\n";
+    omni_exit(1);
+  } else {
+    foreach ($result as $token) {
+      echo $token."\n";
+    }
     omni_exit(0);
   }
 }

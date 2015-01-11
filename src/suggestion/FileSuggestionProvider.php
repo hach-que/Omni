@@ -10,7 +10,11 @@ final class FileSuggestionProvider extends SuggestionProvider {
     $current_value = id(new FragmentsVisitor())
       ->setAllowSideEffects(false)
       ->visit($shell, $current);
-      
+     
+    if (strlen($current_value) === 0) {
+      return array();
+    }
+     
     $components = explode("/", $current_value);
     $last_component = array_pop($components);
     $base = implode("/", $components);

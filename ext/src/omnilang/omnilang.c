@@ -13,6 +13,9 @@ extern ast_node* ast_root;
 static int has_error;
 static bstring error_string;
 
+// from parser.y
+const char* lookup_name(int token);
+
 void process_node(zval* output, ast_node* node) {
   zval* arr_children;
   zval* temp;
@@ -92,7 +95,31 @@ PHP_FUNCTION(omnilang_parse) {
   process_node(return_value, ast_root);
 }
 
+PHP_FUNCTION(omnilang_lex) {
+  char* code;
+  int code_len;
+  YY_BUFFER_STATE buffer;
+  int token;
+  
+  if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &code, &code_len) == FAILURE) {
+    RETURN_FALSE;
+  }
+  
+  yyin = NULL;
+  yyout = NULL;
+  has_error = 0;
+  reset_to_initial();
+  buffer = yy_scan_bytes(code, code_len);
+  
+  array_init(return_value);
+  while ((token = yylex())) {
+    add_next_index_string(return_value, lookup_name(token), 1);
+  }
+  yy_delete_buffer(buffer);
+}
+
 PHP_MODULE(omnilang, 
   PHP_FE(omnilang_parse, NULL)
+  PHP_FE(omnilang_lex, NULL)
   PHP_FE(omnilang_get_error, NULL)
 )

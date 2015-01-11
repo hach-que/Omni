@@ -1,6 +1,6 @@
 #!/bin/omni
 
-$futures = @(
+: $futures = @(
   $(new -t ExecFuture "usleep %d" 1),
   $(new -t ExecFuture "usleep %d" 1000),
   $(new -t ExecFuture "usleep %d" 2000),

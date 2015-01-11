@@ -1,5 +1,5 @@
 #!/bin/omni
 
-$name = "Exception";
-$test = $(new -t $name "abc");
+: $name = "Exception";
+: $test = $(new -t $name "abc");
 echo ($test->message);

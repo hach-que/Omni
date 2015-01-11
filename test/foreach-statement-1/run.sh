@@ -1,8 +1,8 @@
 #!/bin/omni
 
-$array = @(
-  abc,
-  def,
+: $array = @(
+  abc, 
+  def, 
   ghi,
 )
 

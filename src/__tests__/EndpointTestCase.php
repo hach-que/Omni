@@ -91,6 +91,11 @@ abstract class EndpointTestCase extends PhutilTestCase {
     $endpoint->write($expected_value);
     $value = $endpoint->read();
     $endpoint->close();
+    
+    if ($value instanceof BytesContainer) {
+      $value = (string)$value;
+    }
+    
     $this->assertEqual(print_r($expected_value, true), print_r($value, true));
   }
   
