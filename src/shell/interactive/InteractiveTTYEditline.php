@@ -177,8 +177,29 @@ final class InteractiveTTYEditline extends Phobject {
       }
     }
     
+    // Detect if all options have a common prefix; if so, use that
+    // instead of a list of of options.
+    $common_prefix = null;
     foreach ($suggestions as $suggestion) {
-      $autocomplete[] = $suggestion['append'];
+      $append = $suggestion['append'];
+      if ($common_prefix === null) {
+        $common_prefix = $append;
+      } else {
+        for ($i = 0; $i < strlen($common_prefix); $i++) {
+          if ($common_prefix[$i] !== $append[$i]) {
+            $common_prefix = substr($common_prefix, 0, $i);
+            break;
+          }
+        }
+      }
+    }
+    
+    if ($common_prefix !== '' && $common_prefix !== null) {
+      $autocomplete[] = $common_prefix;
+    } else {
+      foreach ($suggestions as $suggestion) {
+        $autocomplete[] = $suggestion['append'];
+      }
     }
     
     editline_autocomplete_set($autocomplete);
