@@ -52,6 +52,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       pcntl_signal(SIGTTIN, SIG_IGN);
       pcntl_signal(SIGTTOU, SIG_IGN);
       pcntl_signal(SIGCHLD, SIG_IGN);
+      pcntl_signal(SIGHUP, array($this, "handleTerminalDisconnect"));
       
       // Put ourselves in our own process group.
       $this->shellProcessGroupID = posix_getpid();
@@ -66,6 +67,16 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       // Save the terminal defaults for the shell.
       $this->setTerminalModes($this->captureCurrentTerminalModes());
     }
+  }
+  
+  
+/* -(  Terminal Disconnect  )----------------------------------------------- */
+  
+  
+  public function handleTerminalDisconnect() {
+    $this->requestExit();
+    $this->finalize();
+    omni_exit(0);
   }
   
   
@@ -180,6 +191,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       }
       pcntl_signal(SIGTTOU, SIG_DFL);
       pcntl_signal(SIGCHLD, SIG_DFL);
+      pcntl_signal(SIGHUP, SIG_DFL);
     }
   }
   

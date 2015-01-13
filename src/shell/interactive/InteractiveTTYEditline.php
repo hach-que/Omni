@@ -73,6 +73,9 @@ final class InteractiveTTYEditline extends Phobject {
         $result = editline_read();
       
         switch ($result['status']) {
+          case 'request-exit':
+            $this->shell->requestExit();
+            break;
           case 'visual-suggest':
             $this->clearVisualSuggestions();
             $this->renderFullSuggestions();
@@ -185,7 +188,7 @@ final class InteractiveTTYEditline extends Phobject {
       if ($common_prefix === null) {
         $common_prefix = $append;
       } else {
-        for ($i = 0; $i < strlen($common_prefix); $i++) {
+        for ($i = 0; $i < strlen($common_prefix) && $i < strlen($append); $i++) {
           if ($common_prefix[$i] !== $append[$i]) {
             $common_prefix = substr($common_prefix, 0, $i);
             break;

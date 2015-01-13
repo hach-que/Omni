@@ -14,6 +14,8 @@ static char* prompt = NULL;
 static bstring* autocomplete_entries = NULL;
 static int autocomplete_count = 0;
 static int autocomplete_needs_visual_suggestions = 0;
+static int requested_reverse_search = 0;
+static int requested_exit = 0;
 
 static unsigned char* _handle_tab(EditLine* e, int ch) {
   char* buffer;
@@ -33,6 +35,16 @@ static unsigned char* _handle_tab(EditLine* e, int ch) {
     autocomplete_needs_visual_suggestions = 1;
     return CC_REFRESH_BEEP;
   }
+}
+
+static unsigned char* _handle_ctrld(EditLine* e, int ch) {
+  requested_exit = 1;
+  return CC_REFRESH_BEEP;
+}
+
+static unsigned char* _handle_ctrlr(EditLine* e, int ch) {
+  requested_reverse_search = 1;
+  return CC_REFRESH_BEEP;
 }
 
 static char* _get_prompt(EditLine* e) {
@@ -73,6 +85,12 @@ PHP_FUNCTION(editline_begin) {
   el_set(e, EL_EDITOR, "emacs");
   el_set(e, EL_ADDFN, "autocomplete", "autocomplete the current input", _handle_tab);
   el_set(e, EL_BIND, "\t", "autocomplete", NULL);
+  
+  // TODO Clean this up...
+  el_set(e, EL_ADDFN, "exit_macro", "handle ctrl-D as exit / logout", _handle_ctrld);
+  el_set(e, EL_BIND, "^d", "exit_macro", NULL);
+  //el_set(e, EL_ADDFN, "reverse_search", "handle ctrl-R as reverse_search", _handle_ctrlr);
+  el_set(e, EL_BIND, "^r", "em-inc-search-prev", NULL);
   
   el_source(e, NULL);
   
@@ -124,7 +142,15 @@ PHP_FUNCTION(editline_read) {
   
   if (buf == NULL || count-- <= 0) {
     array_init(return_value);
-    add_assoc_string_ex(return_value, "status", 7, "typing", 1);
+    if (requested_reverse_search) {
+      requested_reverse_search = 0;
+      add_assoc_string_ex(return_value, "status", 7, "request-reverse-search", 1);
+    } else if (requested_exit) {
+      requested_exit = 0;
+      add_assoc_string_ex(return_value, "status", 7, "request-exit", 1);
+    } else {
+      add_assoc_string_ex(return_value, "status", 7, "typing", 1);
+    }
     add_assoc_long_ex(return_value, "cursor", 7, el_cursor(e, 0));
     add_assoc_string_ex(return_value, "input", 6, "", 1);
     return;
@@ -144,6 +170,12 @@ PHP_FUNCTION(editline_read) {
       if (autocomplete_needs_visual_suggestions) {
         autocomplete_needs_visual_suggestions = 0;
         add_assoc_string_ex(return_value, "status", 7, "visual-suggest", 1);
+      } else if (requested_reverse_search) {
+        requested_reverse_search = 0;
+        add_assoc_string_ex(return_value, "status", 7, "request-reverse-search", 1);
+      } else if (requested_exit) {
+        requested_exit = 0;
+        add_assoc_string_ex(return_value, "status", 7, "request-exit", 1);
       } else {
         add_assoc_string_ex(return_value, "status", 7, "typing", 1);
       }
