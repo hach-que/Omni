@@ -270,7 +270,7 @@ cmd_statement:
     ORIGINAL_NODE_NODE_APPEND($$, $9);
     ORIGINAL_NODE_APPEND($$, $10);
   } |
-  KEYWORD_RETURN CMD_WHITESPACE expression
+  KEYWORD_RETURN CMD_WHITESPACE cmd_fragment
   {
     VALUE_NODE($$) = ast_node_create(&node_type_return);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
@@ -582,7 +582,22 @@ cmd_function_declaration:
     ORIGINAL_NODE_APPEND($$, $6);
     ORIGINAL_NODE_NODE_APPEND($$, $7);
     ORIGINAL_NODE_APPEND($$, $8);
-  };
+  } |
+  CMD_BEGIN_PAREN END_PAREN cmd_optional_whitespace CMD_MAP cmd_optional_whitespace CMD_BEGIN_PAREN expression END_PAREN
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_function);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($7));
+    ast_node_set_string(VALUE_NODE($$), bfromcstr("implicit_return"));
+    
+    ORIGINAL_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_APPEND($$, $3);
+    ORIGINAL_NODE_APPEND($$, $4);
+    ORIGINAL_NODE_APPEND($$, $5);
+    ORIGINAL_NODE_APPEND($$, $6);
+    ORIGINAL_NODE_NODE_APPEND($$, $7);
+    ORIGINAL_NODE_APPEND($$, $8);
+  } ;
 
   
 /* ---------- Rules that appear only in expressions ------------------------ */
@@ -665,7 +680,20 @@ expr_function_declaration:
     ORIGINAL_NODE_APPEND($$, $4);
     ORIGINAL_NODE_NODE_APPEND($$, $5);
     ORIGINAL_NODE_APPEND($$, $6);
-  };
+  } |
+  EXPR_BEGIN_PAREN END_PAREN EXPR_MAP EXPR_BEGIN_PAREN expression END_PAREN
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_function);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($5));
+    ast_node_set_string(VALUE_NODE($$), bfromcstr("implicit_return"));
+    
+    ORIGINAL_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_APPEND($$, $3);
+    ORIGINAL_NODE_APPEND($$, $4);
+    ORIGINAL_NODE_NODE_APPEND($$, $5);
+    ORIGINAL_NODE_APPEND($$, $6);
+  } ;
   
 expression:
   expr_fragment

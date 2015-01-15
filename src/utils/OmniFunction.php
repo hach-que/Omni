@@ -4,10 +4,12 @@ final class OmniFunction extends Phobject {
 
   private $statementData;
   private $original;
+  private $implicitReturn;
 
-  public function __construct(array $statement_data, $original) {
+  public function __construct(array $statement_data, $original, $implicit_return = false) {
     $this->statementData = $statement_data;
     $this->original = $original;
+    $this->implicitReturn = $implicit_return;
   }
   
   public function getOriginal() {
@@ -22,7 +24,9 @@ final class OmniFunction extends Phobject {
       $shell->setVariable($i + 1, $arguments[$i]);
     }
     
-    $result = id(new StatementsVisitor())->visit($shell, $this->statementData);
+    list($visitor, $data) = $this->constructVisitor();
+    
+    $result = $visitor->visit($shell, $data);
     
     $shell->endVariableScope();
     
@@ -38,11 +42,39 @@ final class OmniFunction extends Phobject {
     }
     $shell->setVariable('_', $iterator);
     
-    $result = id(new StatementsVisitor())->visit($shell, $this->statementData);
+    list($visitor, $data) = $this->constructVisitor();
+    
+    $result = $visitor->visit($shell, $data);
     
     $shell->endVariableScope();
     
     return $result;
+  }
+  
+  private function constructVisitor() {
+    $visitor = new StatementsVisitor();
+      
+    if ($this->implicitReturn) {
+      $data = array(
+        'type' => 'statements',
+        'original' => $this->statementData['original'],
+        'relative' => $this->statementData['relative'],
+        'data' => null,
+        'children' => array(
+          array(
+            'type' => 'return',
+            'original' => $this->statementData['original'],
+            'relative' => $this->statementData['relative'],
+            'data' => null,
+            'children' => array($this->statementData),
+          )
+        )
+      );
+    } else {
+      $data = $this->statementData;
+    }
+    
+    return array($visitor, $data);
   }
 
 }
