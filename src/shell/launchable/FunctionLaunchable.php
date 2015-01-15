@@ -16,24 +16,28 @@ final class FunctionLaunchable
     return array(
       'stdin' => $stdin->createOutboundEndpoint(null, "function stdin"),
       'stdout' => $stdout->createInboundEndpoint(null, "function stdout"),
+      'stderr' => $stderr->createInboundEndpoint(null, "function stderr"),
     );
   }
   
   public function launch(Shell $shell, Job $job, array $prepare_data) {
     $stdin = idx($prepare_data, 'stdin');
     $stdout = idx($prepare_data, 'stdout');
+    $stderr = idx($prepare_data, 'stderr');
     
     $pid = pcntl_fork();
     if ($pid === 0) {
       $stdin->closeWrite();
       $stdout->closeRead();
+      $stderr->closeRead();
       
       $shell->launchPipeFunction(
         $job,
         $this->function,
         $this->arguments,
         $stdin,
-        $stdout);
+        $stdout,
+        $stderr);
       
       // We never continue execution here because we're replaced
       // with the child process.
@@ -44,6 +48,7 @@ final class FunctionLaunchable
     
     $stdin->closeRead();
     $stdout->closeWrite();
+    $stderr->closeWrite();
     
     return $pid;
   }

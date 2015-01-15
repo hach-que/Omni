@@ -234,24 +234,50 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     OmniFunction $function,
     array $argv,
     Endpoint $stdin,
-    Endpoint $stdout) {
+    Endpoint $stdout,
+    Endpoint $stderr) {
     
     omni_trace("preparing forked process");
     
     $this->prepareForkedProcess($job);
     
+    omni_trace("place shell into non-interactive mode");
+    
+    // We are running as a sub-process, so we put ourselves
+    // into non-interactive mode (in case the pipe function launches
+    // executables).  We don't reset variables however, because we
+    // want a copy of them for the function.
+    $this->shellProcessGroupID = null;
+    $this->tmodes = null;
+    $this->isInteractive = false;
+    $this->jobs = array();
+    $this->isExiting = false;
+    $this->jobsToKillPipesOnExit = array();
+    $this->explicitPipes = array();
+    
     omni_trace("beginning pipe function");
     
-    while (true) {
-      try {
-        $obj = $stdin->read();
-        
-        $result = $function->callIterator($this, $argv, $obj);
-        
-        $stdout->write($result);
-      } catch (NativePipeClosedException $ex) {
-        omni_exit(0);
+    try {
+      while (true) {
+        try {
+          $obj = $stdin->read();
+          
+          $result = $function->callIterator($this, $argv, $obj);
+          
+          $stdout->write($result);
+        } catch (NativePipeClosedException $ex) {
+          $stderr->closeWrite();
+          $stdout->closeWrite();
+          $stdin->closeRead();
+          omni_exit(0);
+        }
       }
+    } catch (Exception $ex) {
+      $stderr->write($ex);
+      $stderr->closeWrite();
+      $stdout->closeWrite();
+      $stdin->closeRead();
+      omni_exit(1);
     }
   }
   
