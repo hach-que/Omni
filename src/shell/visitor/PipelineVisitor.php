@@ -117,6 +117,8 @@ final class PipelineVisitor extends Visitor {
       throw $ex;
     }
     
+    $job->closeTemporaryPipes();
+    
     $job->untrackTemporaryPipes();
     
     if ($data['data'] === 'expression') {

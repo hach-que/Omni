@@ -562,18 +562,26 @@ class Pipe extends Phobject implements PipeInterface {
     
     omni_trace("starting runtime pipe controller");
     
+    if ($this->job !== null) {
+      $job_desc = $this->job->getCommand();
+    } else {
+      $job_desc = "\n".PhutilErrorHandler::formatStacktrace(debug_backtrace());
+    }
+    
     omni_trace("creating native control pipe");
     
     $this->controllerControlPipe = FileDescriptorManager::createControlPipe(
-      'control read',
-      'control write');
+      'control read to pipe '.$job_desc,
+      'control write to pipe '.$job_desc);
     
     omni_trace("creating native data pipe");
     
     $this->controllerDataToControllerPipe = new Endpoint();
+    $this->controllerDataToControllerPipe->setName("controller data to pipe ".$job_desc);
     $this->controllerDataToControllerPipe->instantiatePipe();
     
     $this->controllerDataFromControllerPipe = new Endpoint();
+    $this->controllerDataFromControllerPipe->setName("controller data from pipe ".$job_desc);
     $this->controllerDataFromControllerPipe->instantiatePipe();
     
     omni_trace("forking omni for pipe controller");
@@ -634,6 +642,23 @@ class Pipe extends Phobject implements PipeInterface {
       posix_kill($this->controllerPid, SIGKILL);
       $this->controllerPid = null;
     }
+  }
+  
+  /**
+   * Closes the file descriptors used for controlling the
+   * pipe controller process.  This must be called once
+   * you no longer intend to call methods on the process.
+   *
+   * If you forget to call this method, Omni will leak
+   * file descriptors when pipes go out of scope (even if
+   * the pipe controller eventually exits, that doesn't cause
+   * file descriptors to be freed in the parent process).
+   */
+  public function close() {
+    FileDescriptorManager::close(
+      $this->controllerControlPipe['write']);
+    $this->controllerDataToControllerPipe->closeWrite();
+    $this->controllerDataFromControllerPipe->closeRead();
   }
   
   public function receivedTerminateSignalFromShell() {

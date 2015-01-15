@@ -210,7 +210,9 @@ final class Endpoint extends BaseEndpoint {
   
   public function instantiatePipe() {
     if ($this->nativePipePending) {
-      $this->nativePipe = FileDescriptorManager::createPipe('endpoint read', 'endpoint write');
+      $this->nativePipe = FileDescriptorManager::createPipe(
+        'endpoint read: '.$this->getName(),
+        'endpoint write: '.$this->getName());
       $this->nativePipePending = false;
       omni_trace("created a pipe with read FD ".$this->getReadFD()." and write FD ".$this->getWriteFD());
     }

@@ -126,6 +126,14 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     }
   }
   
+  public function closeTemporaryPipes() {
+    if ($this->temporaryPipes !== null) {
+      foreach ($this->temporaryPipes as $pipe) {
+        $pipe->close();
+      }
+    }
+  }
+  
   public function untrackTemporaryPipes() {
     $this->temporaryPipes = null;
   }

@@ -18,6 +18,11 @@ final class FileDescriptorManager extends Phobject {
   const STDOUT_FILENO = 502;
   const STDERR_FILENO = 503;
   
+  // The operating system has a maximum limit of 1024 file descriptors, so
+  // we set this limit a bit lower to detect exhaustion before we hit
+  // a point where random functions will start throwing fatal errors.
+  const FD_LIMIT = 1000;
+  
   private static $fdTable = array(
     501 => array(
       'name' => 'stdin',
@@ -37,6 +42,14 @@ final class FileDescriptorManager extends Phobject {
   );
   private static $fdID = 1000;
   
+  public static function getOpenFDCount() {
+    return count(self::$fdTable);
+  }
+  
+  public static function getFDTable() {
+    return self::$fdTable;
+  }
+  
   public static function replaceStandardPipes($stdin, $stdout, $stderr) {
     self::$fdTable[self::STDIN_FILENO]['fd'] = 
       self::$fdTable[$stdin]['fd'];
@@ -50,6 +63,13 @@ final class FileDescriptorManager extends Phobject {
     $pipe = fd_pipe();
     if ($pipe === false) {
       throw new Exception('Creation of pipe failed.');
+    }
+    
+    if (count(self::$fdTable) >= self::FD_LIMIT) {
+      throw new Exception(
+        'File descriptor table exhausted.  This indicates a serious FD leak.  '.
+        'Here is a list of all of the currently open file descriptors:'."\n".
+        print_r(self::$fdTable, true));
     }
     
     $read_id = self::$fdID++;
@@ -80,6 +100,13 @@ final class FileDescriptorManager extends Phobject {
     $pipe = fd_control_pipe();
     if ($pipe === false) {
       throw new Exception('Creation of control pipe failed.');
+    }
+    
+    if (count(self::$fdTable) >= self::FD_LIMIT) {
+      throw new Exception(
+        'File descriptor table exhausted.  This indicates a serious FD leak.  '.
+        'Here is a list of all of the currently open file descriptors:'."\n".
+        print_r(self::$fdTable, true));
     }
     
     $read_id = self::$fdID++;
