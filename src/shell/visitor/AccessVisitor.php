@@ -70,9 +70,17 @@ final class AccessVisitor extends Visitor {
         }
       }
   
+      if (!$this->getAllowSideEffects()) {
+        return null;
+      }
+      
       throw new Exception(
         'Unable to find property '.$child.' on object.');
     } else {
+      if (!$this->getAllowSideEffects()) {
+        return null;
+      }
+      
       throw new Exception(
         'Unable to access members of '.
         $data['children'][0]['original'].
