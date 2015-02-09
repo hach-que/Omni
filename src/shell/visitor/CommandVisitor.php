@@ -15,7 +15,14 @@ final class CommandVisitor extends Visitor {
       }
     }
     
-    return new Process($arguments->deepCopy(), $data['children'][0]['original']);
+    $expander = new ExpressionExpander();
+    $arguments_copy = $arguments->deepCopy();
+    $arguments_expanded = array();
+    foreach ($arguments_copy as $arg) {
+      $arguments_expanded[] = $expander->expandFilePath($arg);
+    }
+    
+    return new Process($arguments_expanded, $data['children'][0]['original']);
   }
   
 }

@@ -433,6 +433,19 @@ final class ListDirectoryBuiltin extends Builtin {
       $paths[] = '.';
     }
     
+    $flattened_paths = array();
+    foreach ($paths as $path) {
+      if (is_array($path)) {
+        foreach ($path as $p) {
+          $flattened_paths[] = $p;
+        }
+      } else {
+        $flattened_paths[] = $path;
+      }
+    }
+    $paths = $flattened_paths;
+    unset($flattened_paths);
+    
     $non_exist = false;
     
     $is_raw = true;

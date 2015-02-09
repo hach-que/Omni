@@ -9,22 +9,29 @@
  */
 final class UserFriendlyFormatter extends Phobject {
 
-  private $seen = null;
+  private $seenArrays = null;
+  private $seenObjects = null;
 
   public function clearSeenCache() {
-    $this->seen = array();
+    $this->seenArrays = array();
+    $this->seenObjects = array();
   }
   
   public function get($object, $prefix = '', $no_newline = false) {
     $newline = $no_newline ? '' : "\n";
     
-    if ((is_array($object) || is_object($object)) && 
-      in_array($object, $this->seen)) {
-      
+    if (is_array($object) && in_array($object, $this->seenArrays)) {
       return '<already shown>'.$newline;
+    } else if (is_array($object)) {
+      $this->seenArrays[] = $object;
     }
     
-    $this->seen[] = $object;
+    if (is_object($object) && 
+      array_key_exists(spl_object_hash($object), $this->seenObjects)) {
+      return '<already shown>'.$newline;
+    } else if (is_object($object)) {
+      $this->seenObjects[spl_object_hash($object)] = true;
+    }
     
     if ($object instanceof Exception) {
       return $this->getException($object, $prefix);
@@ -111,6 +118,23 @@ final class UserFriendlyFormatter extends Phobject {
   }
   
   public static function getObjectPropertiesAndMethods($object) {
+    // Make sure we never invoke these methods because they have
+    // side effects.
+    $blacklist = array(
+      'Future' => array(
+        'isReady'
+      )
+    );
+    
+    $blacklist_rules = array();
+    foreach ($blacklist as $class => $rules) {
+      if ($object instanceof $class) {
+        foreach ($rules as $rule) {
+          $blacklist_rules[$rule] = true;
+        }
+      }
+    }
+    
     $reflection = new ReflectionClass($object);
     $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
     $methods = $reflection->getMethods(ReflectionMethod::IS_PUBLIC);
@@ -127,6 +151,7 @@ final class UserFriendlyFormatter extends Phobject {
     }
     foreach ($methods as $name => $method) {
       $show_method = false;
+      $blacklisted = isset($blacklist_rules[$name]);
       
       if (preg_match('/^get[A-Z]/', $name)) {
         if ($method->isStatic()) {
@@ -139,10 +164,14 @@ final class UserFriendlyFormatter extends Phobject {
         $upper_field_name = strtoupper($field_name[0]).substr($field_name, 1);
         $field_name = strtolower($field_name[0]).substr($field_name, 1);
         
-        try {
-          $value = $method->invoke($object);
-        } catch (Exception $ex) {
-          $value = $ex;
+        if (!$blacklisted) {
+          try {
+            $value = $method->invoke($object);
+          } catch (Exception $ex) {
+            $value = $ex;
+          }
+        } else {
+          $value = '<not shown>';
         }
         
         $array[$field_name] = array(
@@ -161,10 +190,14 @@ final class UserFriendlyFormatter extends Phobject {
         }
         $field_name = 'is'.substr($name, 2);
         
-        try {
-          $value = $method->invoke($object);
-        } catch (Exception $ex) {
-          $value = $ex;
+        if (!$blacklisted) {
+          try {
+            $value = $method->invoke($object);
+          } catch (Exception $ex) {
+            $value = $ex;
+          }
+        } else {
+          $value = '<not shown>';
         }
         
         $array[$field_name] = array(

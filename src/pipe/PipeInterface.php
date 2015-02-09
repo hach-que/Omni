@@ -14,4 +14,6 @@ interface PipeInterface {
   
   public function markFinalized();
   
+  public function close();
+  
 }

@@ -715,7 +715,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   
   public function execute($input) {
     $stderr = $this->createInternalStderrEndpoint();
-  
+    
     try {
       omni_trace("start parse of: ");
       omni_trace($input);

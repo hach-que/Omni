@@ -60,9 +60,23 @@ final class NativeLaunchable
       
       $argv = $this->argv;
       array_unshift($argv, $this->executable);
-    
+      
+      // Expand array arguments as additional arguments.
+      $expanded_args = array();
+      foreach ($argv as $arg) {
+        if (is_array($arg)) {
+          foreach ($arg as $a) {
+            $expanded_args[] = (string)$a;
+          }
+        } else if ($arg === null) {
+          // Skip this argument.
+        } else {
+          $expanded_args[] = (string)$arg;
+        }
+      }
+      
       $shell->launchProcess(
-        $argv,
+        $expanded_args,
         $job,
         FileDescriptorManager::getNativeFD($stdin_endpoint->getReadFD()),
         FileDescriptorManager::getNativeFD($stdout_endpoint->getWriteFD()),

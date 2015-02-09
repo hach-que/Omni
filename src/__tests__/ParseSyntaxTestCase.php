@@ -156,4 +156,15 @@ EOF
     }
   }
   
+  public function testVariableAssignmentFromMethodCall() {
+    $strings = array(
+      '$test = ($test->call())',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse(': '.$str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
 }

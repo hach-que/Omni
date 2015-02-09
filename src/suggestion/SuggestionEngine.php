@@ -28,9 +28,14 @@ final class SuggestionEngine extends Phobject {
       }
       
       foreach ($providers as $provider) {
-        $provider_suggestions = $provider->getSuggestions($shell, $list[$i], $context);
-        foreach ($provider_suggestions as $suggestion) {
-          $suggestions[] = $suggestion;
+        try {
+          $provider_suggestions = $provider->getSuggestions($shell, $list[$i], $context);
+          foreach ($provider_suggestions as $suggestion) {
+            $suggestions[] = $suggestion;
+          }
+        } catch (EvaluationWouldCauseSideEffectException $ex) {
+          // This provider can't give suggestions because the evaluation would
+          // cause a side-effect.
         }
       }
     }

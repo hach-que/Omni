@@ -11,6 +11,10 @@ final class FileSuggestionProvider extends SuggestionProvider {
       ->setAllowSideEffects(false)
       ->visit($shell, $current);
      
+    if (!is_string($current_value)) {
+      return array();
+    }
+     
     if (strlen($current_value) === 0) {
       return array();
     }

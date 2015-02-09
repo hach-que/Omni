@@ -37,5 +37,8 @@ final class InProcessPipe extends Phobject implements PipeInterface {
   
   public function markFinalized() {
   }
+  
+  public function close() {
+  }
 
 }
