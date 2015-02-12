@@ -503,6 +503,11 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       if (!posix_kill(-$job->getProcessGroupIDOrAssert(), SIGCONT)) {
         omni_trace("error: kill SIGCONT\n");
       }
+    } else {
+      // Initialize with default shell terminal
+      // modes (because shell input will have changed the
+      // modes from the expected defaults).
+      $this->applyTerminalModes($this);
     }
     
     omni_trace("waiting for foreground job to complete");
