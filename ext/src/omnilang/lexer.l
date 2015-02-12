@@ -152,7 +152,7 @@ const_bstring get_current_state_name();
     /* Default rule for unknown characters */
 
 <*>.|\r|\n                                              {
-    printf("unable to handle text %s in lexer when in state %s!\n", yytext, get_current_state_name()->data);
+    /*printf("unable to handle text %s in lexer when in state %s!\n", yytext, get_current_state_name()->data);*/
     return ERROR;
   }
 
