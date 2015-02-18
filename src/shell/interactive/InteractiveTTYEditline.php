@@ -70,11 +70,33 @@ final class InteractiveTTYEditline extends Phobject {
         
         $this->handleCommand($result);
       } else {
+        // Switch interrupt code to ^@ so that we
+        // can detect ^C.
+        $codes = tc_tcgetattr(0);
+        $old = $codes['cc'][tc_vintr()];
+        $codes['cc'][tc_vintr()] = '@';
+        tc_tcsetattr(0, tc_tcsadrain(), $codes);
+      
+        // Then perform the read operation.
         $result = editline_read();
+        
+        // Then set the interrupt code back again (so
+        // that subprocesses have it as expected).
+        $codes = tc_tcgetattr(0);
+        $codes['cc'][tc_vintr()] = $old;
+        tc_tcsetattr(0, tc_tcsadrain(), $codes);
       
         switch ($result['status']) {
           case 'request-exit':
+            echo "exit\n";
             $this->shell->requestExit();
+            break;
+          case 'request-interrupt':
+            echo "^C\n";
+            $this->addCommandToHistory($result['input']);
+            $this->continuingLine = false;
+            $this->continuingLineBuffer = '';
+            $this->reprompt();
             break;
           case 'visual-suggest':
             $this->clearVisualSuggestions();

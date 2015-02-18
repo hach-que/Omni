@@ -143,6 +143,10 @@ PHP_FUNCTION(tc_tcsadrain) {
   RETURN_LONG(TCSADRAIN);
 }
 
+PHP_FUNCTION(tc_vintr) {
+  RETURN_LONG(VINTR);
+}
+
 PHP_FUNCTION(tc_tgetent) {
   char* buffer;
   int buffer_len;
@@ -198,4 +202,5 @@ PHP_MODULE(tc,
   PHP_FE(tc_tgetent, NULL)
   PHP_FE(tc_tgetnum, NULL)
   PHP_FE(tc_get_error, NULL)
+  PHP_FE(tc_vintr, NULL)
 )

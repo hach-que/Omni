@@ -16,6 +16,7 @@ static int autocomplete_count = 0;
 static int autocomplete_needs_visual_suggestions = 0;
 static int requested_reverse_search = 0;
 static int requested_exit = 0;
+static int requested_interrupt = 0;
 
 static unsigned char* _handle_tab(EditLine* e, int ch) {
   char* buffer;
@@ -35,6 +36,11 @@ static unsigned char* _handle_tab(EditLine* e, int ch) {
     autocomplete_needs_visual_suggestions = 1;
     return CC_REFRESH_BEEP;
   }
+}
+
+static unsigned char* _handle_ctrlc(EditLine* e, int ch) {
+  requested_interrupt = 1;
+  return CC_REFRESH_BEEP;
 }
 
 static unsigned char* _handle_ctrld(EditLine* e, int ch) {
@@ -88,9 +94,10 @@ PHP_FUNCTION(editline_begin) {
   
   // TODO Clean this up...
   el_set(e, EL_ADDFN, "exit_macro", "handle ctrl-D as exit / logout", _handle_ctrld);
+  el_set(e, EL_ADDFN, "interrupt_fired", "handle ctrl-C as interrupt", _handle_ctrlc);
   el_set(e, EL_BIND, "^d", "exit_macro", NULL);
-  //el_set(e, EL_ADDFN, "reverse_search", "handle ctrl-R as reverse_search", _handle_ctrlr);
   el_set(e, EL_BIND, "^r", "em-inc-search-prev", NULL);
+  el_set(e, EL_BIND, "^c", "interrupt_fired", NULL);
   
   el_source(e, NULL);
   
@@ -148,6 +155,9 @@ PHP_FUNCTION(editline_read) {
     } else if (requested_exit) {
       requested_exit = 0;
       add_assoc_string_ex(return_value, "status", 7, "request-exit", 1);
+    } else if (requested_interrupt) {
+      requested_interrupt = 0;
+      add_assoc_string_ex(return_value, "status", 7, "request-interrupt", 1);
     } else {
       add_assoc_string_ex(return_value, "status", 7, "typing", 1);
     }
@@ -157,6 +167,10 @@ PHP_FUNCTION(editline_read) {
   }
   
   if (count == 0 && buf[0] == CTRL('d')) {
+    done = 1;
+  }
+  
+  if (count == 0 && buf[0] == CTRL('c')) {
     done = 1;
   }
   
@@ -176,6 +190,9 @@ PHP_FUNCTION(editline_read) {
       } else if (requested_exit) {
         requested_exit = 0;
         add_assoc_string_ex(return_value, "status", 7, "request-exit", 1);
+      } else if (requested_interrupt) {
+        requested_interrupt = 0;
+        add_assoc_string_ex(return_value, "status", 7, "request-interrupt", 1);
       } else {
         add_assoc_string_ex(return_value, "status", 7, "typing", 1);
       }
