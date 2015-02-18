@@ -17,6 +17,11 @@ final class ExpressionExpander extends Phobject {
         $new_path = $home.'/'.substr($path, 2);
         return $this->expandFilePath($new_path);
       }
+      
+      if (strlen($path) === 1 && $path[0] === '~') {
+        $new_path = $home;
+        return $this->expandFilePath($new_path);
+      }
     }
     
     $results = glob($path, GLOB_MARK | GLOB_NOCHECK | GLOB_BRACE);
