@@ -3,6 +3,8 @@
 final class SuggestionEngine extends Phobject {
 
   public function getSuggestions(Shell $shell, $input, $position) {
+    omni_trace("getSuggestions: start");
+  
     // Parse the input.
     $tree = omnilang_parse($input);
     
@@ -10,15 +12,21 @@ final class SuggestionEngine extends Phobject {
       return array();
     }
     
+    omni_trace("getSuggestions: before traverseToPosition");
+    
     // Traverse the tree and find the current node for the
     // specified position.
     $list = $this->traverseToPosition($tree, $position);
+    
+    omni_trace("getSuggestions: before symbol load");
     
     $providers = id(new PhutilSymbolLoader())
       ->setAncestorClass('SuggestionProvider')
       ->loadObjects();
     
     $suggestions = array();
+    
+    omni_trace("getSuggestions: before position detect");
     
     for ($i = count($list) - 1; $i >= 0; $i--) {
       if ($i > 1) {
@@ -27,11 +35,17 @@ final class SuggestionEngine extends Phobject {
         $context = array();
       }
       
+      omni_trace("getSuggestions: load suggestions");
+      
       foreach ($providers as $provider) {
         try {
+          omni_trace("getSuggestions: call getSuggestions ".get_class($provider));
           $provider_suggestions = $provider->getSuggestions($shell, $list[$i], $context);
           foreach ($provider_suggestions as $suggestion) {
-            $suggestions[] = $suggestion;
+            omni_trace("getSuggestions: add suggestion ".$suggestion['append']);
+            if ($suggestion['append'] !== '') {
+              $suggestions[] = $suggestion;
+            }
           }
         } catch (EvaluationWouldCauseSideEffectException $ex) {
           // This provider can't give suggestions because the evaluation would
@@ -39,6 +53,8 @@ final class SuggestionEngine extends Phobject {
         }
       }
     }
+    
+    omni_trace("getSuggestions: sort results by priority");
     
     return isort($suggestions, 'priority');
   }

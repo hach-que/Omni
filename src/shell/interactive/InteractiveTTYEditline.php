@@ -205,8 +205,12 @@ final class InteractiveTTYEditline extends Phobject {
     // Detect if all options have a common prefix; if so, use that
     // instead of a list of of options.
     $common_prefix = null;
+    $wrap_prefix = false;
     foreach ($suggestions as $suggestion) {
       $append = $suggestion['append'];
+      if ($suggestion['wrap_quotes']) {
+        $wrap_prefix = true;
+      }
       if ($common_prefix === null) {
         $common_prefix = $append;
       } else {
@@ -220,10 +224,20 @@ final class InteractiveTTYEditline extends Phobject {
     }
     
     if ($common_prefix !== '' && $common_prefix !== null) {
-      $autocomplete[] = $common_prefix;
+      if ($wrap_prefix) {
+        $autocomplete[] = "'".$common_prefix."'";
+      } else {
+        $autocomplete[] = $common_prefix;
+      }
     } else {
       foreach ($suggestions as $suggestion) {
-        $autocomplete[] = $suggestion['append'];
+        if ($suggestion['append'] !== '' && $suggestion['append'] !== null) {
+          if ($suggestion['wrap_quotes']) {
+            $autocomplete[] = "'".$suggestion['append']."'";
+          } else {
+            $autocomplete[] = $suggestion['append'];
+          }
+        }
       }
     }
     

@@ -31,6 +31,13 @@ abstract class Visitor {
   protected abstract function visitImpl(Shell $shell, array $data);
   
   protected function visitChild(Shell $shell, array $child) {
+    return $this->visitChildCall(
+      $shell,
+      $child,
+      'visit');
+  }
+  
+  protected function visitChildCall(Shell $shell, array $child, $func) {
     $mappings = array(
       'access' => 'AccessVisitor',
       'arguments' => 'ArgumentsVisitor',
@@ -67,13 +74,28 @@ abstract class Visitor {
     
     $visitor = new $visitor_name();
     $visitor->setAllowSideEffects($this->getAllowSideEffects());
-    return $visitor->visit($shell, $child);
+    return $visitor->$func($shell, $child);
   }
   
   public static function visitCustomChild(Shell $shell, array $child, $allow_side_effects) {
     $visitor = new StatementsVisitor();
     $visitor->setAllowSideEffects($allow_side_effects);
     return $visitor->visitChild($shell, $child);
+  }
+  
+  public function isSafeToAppendFragment(Shell $shell, array $data) {
+    return $this->isSafeToAppendFragmentImpl($shell, $data);
+  }
+  
+  protected function isSafeToAppendFragmentImpl(Shell $shell, array $data) {
+    return false;
+  }
+  
+  protected function isSafeToAppendFragmentChild(Shell $shell, array $child) {
+    return $this->visitChildCall(
+      $shell,
+      $child,
+      'isSafeToAppendFragmentImpl');
   }
   
 }

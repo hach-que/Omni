@@ -17,6 +17,15 @@ final class FragmentsVisitor extends Visitor {
     return $result;
   }
   
+  public function isSafeToAppendFragmentImpl(Shell $shell, array $data) {
+    foreach ($data['children'] as $child) {
+      if (!$this->isSafeToAppendFragmentChild($shell, $child)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
 }
 
     

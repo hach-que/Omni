@@ -6,6 +6,10 @@ final class FragmentVisitor extends Visitor {
     return $data['data'];
   }
   
+  public function isSafeToAppendFragmentImpl(Shell $shell, array $data) {
+    return true;
+  }
+  
 }
 
     

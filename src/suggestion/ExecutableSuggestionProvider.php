@@ -21,9 +21,12 @@ final class ExecutableSuggestionProvider extends SuggestionProvider {
       return array();
     }
     
-    $last_component = id(new FragmentsVisitor())
-      ->setAllowSideEffects(false)
-      ->visit($shell, $arguments['children'][0]);
+    $visitor = id(new FragmentsVisitor())
+      ->setAllowSideEffects(false);
+    $last_component = 
+      $visitor->visit($shell, $arguments['children'][0]);
+    $safe_to_append = 
+      $visitor->isSafeToAppendFragment($shell, $arguments['children'][0]); 
     
     $paths = explode(':', getenv('PATH'));
     
@@ -47,6 +50,7 @@ final class ExecutableSuggestionProvider extends SuggestionProvider {
                 'node_replace' => $current['original'].$append,
                 'description' => 'executable',
                 'priority' => 2000,
+                'wrap_quotes' => !$safe_to_append,
               );
             }
           }

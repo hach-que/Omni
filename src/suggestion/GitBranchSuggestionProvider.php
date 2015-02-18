@@ -17,9 +17,12 @@ final class GitBranchSuggestionProvider extends SuggestionProvider {
       return array();
     }
     
-    $executable = id(new FragmentsVisitor())
-      ->setAllowSideEffects(false)
-      ->visit($shell, $arguments['children'][0]);
+    $visitor = id(new FragmentsVisitor())
+      ->setAllowSideEffects(false);
+    $executable = 
+      $visitor->visit($shell, $arguments['children'][0]);
+    $safe_to_append = 
+      $visitor->isSafeToAppendFragment($shell, $arguments['children'][0]); 
     
     if ($executable !== 'git') {
       return array();
@@ -243,6 +246,7 @@ final class GitBranchSuggestionProvider extends SuggestionProvider {
                 'node_replace' => $current['original'].$append,
                 'description' => ($priority < 2000) ? 'git plumbing' : 'git subcommand',
                 'priority' => $priority,
+                'wrap_quotes' => !$safe_to_append,
               );
             }
           }
@@ -268,6 +272,7 @@ final class GitBranchSuggestionProvider extends SuggestionProvider {
               'node_replace' => $current['original'].$append,
               'description' => 'branch in repository',
               'priority' => 2000,
+              'wrap_quotes' => !$safe_to_append,
             );
           }
         }
