@@ -28,6 +28,10 @@ final class ExecutableSuggestionProvider extends SuggestionProvider {
     $safe_to_append = 
       $visitor->isSafeToAppendFragment($shell, $arguments['children'][0]); 
     
+    if (!is_string($last_component)) {
+      return array();
+    }
+    
     $paths = explode(':', getenv('PATH'));
     
     $results = array();

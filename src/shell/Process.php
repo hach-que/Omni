@@ -70,6 +70,9 @@ final class Process
   
   public function useInProcessPipes(Shell $shell) {
     $executable = $this->arguments[0];
+    if ($executable instanceof OmniFunction) {
+      return false;
+    }
     if ($shell->isKnownBuiltin($executable)) {
       $builtin = $shell->lookupBuiltin($executable);
       if ($builtin->useInProcessPipes()) {
