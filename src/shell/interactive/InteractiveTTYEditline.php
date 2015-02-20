@@ -312,7 +312,12 @@ final class InteractiveTTYEditline extends Phobject {
   public function getPrompt() {
     $user = get_current_user();
     $host = gethostname();
-    $cwd = getcwd();
+    $cwd = $this->shell->getVirtualFSSession()->getCurrentDirectory();
+    list($prefix, $path) = VirtualFS::parsePath($cwd);
+    if ($path !== '' && $path !== '/') {
+      // Remove unnecessary trailing slash.
+      $cwd = rtrim($cwd, '/');
+    }
     $home = getenv('HOME');
     if (strlen($cwd) >= strlen($home)) {
       if (substr($cwd, 0, strlen($home)) === $home) {

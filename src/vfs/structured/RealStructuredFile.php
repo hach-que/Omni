@@ -1,6 +1,8 @@
 <?php
 
-final class StructuredFile extends Phobject {
+final class RealStructuredFile
+  extends Phobject
+  implements StructuredFileInterface {
 
   private $path;
   private $originalName;
@@ -67,15 +69,15 @@ final class StructuredFile extends Phobject {
   public function getMetaTarget() {
     // Return real file name for "." and ".." entries.
     if ($this->originalName !== basename($this->path)) {
-      return new StructuredFile($this->path);
+      return new RealStructuredFile($this->path);
     }
     
     if ($this->isSymbolicLink()) {
       $link = $this->getLinkTarget();
       if ($link[0] === '/') {
-        return new StructuredFile($link, $link);
+        return new RealStructuredFile($link, $link);
       } else {
-        return new StructuredFile($this->getParentDirectory()."/".$link, $link);
+        return new RealStructuredFile($this->getParentDirectory()."/".$link, $link);
       }
     }
     

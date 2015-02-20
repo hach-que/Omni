@@ -17,6 +17,7 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
   private $jobsToKillPipesOnExit = array();
   private $explicitPipes = array();
   private $lastExitCode = 0;
+  private $virtualFSSession = null;
   
   public function __construct() {
     $this->builtins = id(new PhutilSymbolLoader())
@@ -24,6 +25,13 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       ->loadObjects();
     $this->builtins = mpull($this->builtins, null, 'getName');
     $this->variableManager = new VariableManager($this);
+    $this->virtualFSSession = new VirtualFSSession(
+      new VirtualFS(),
+      getcwd());
+  }
+  
+  public function getVirtualFSSession() {
+    return $this->virtualFSSession;
   }
   
   

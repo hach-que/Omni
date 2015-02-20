@@ -87,9 +87,31 @@ final class ChangeDirectoryBuiltin extends Builtin {
     
     $current_path = null;
     $is_absolute = false;
+    $is_untouchable = false;
     if (strlen($directory) >= 1 && $directory[0] === '/') {
       $current_path = $directory;
       $is_absolute = true;
+    }
+    
+    // Support for VirtualFS paths.
+    $prefix_pos = strpos($directory, ':');
+    if ($prefix_pos !== false) {
+      omni_trace("cd-vfs: prefix character found");
+      $slash_pos = strpos($directory, '/');
+      if ($slash_pos === false) {
+        omni_trace("cd-vfs: slash not found");
+        if ($prefix_pos === strlen($directory) - 1) {
+          omni_trace("cd-vfs: prefix is last character");
+          $current_path = $directory.'/';
+          $is_absolute = true;
+          $is_untouchable = true;
+        }
+      } else if ($prefix_pos === $slash_pos - 1) {
+        omni_trace("cd-vfs: prefix is immediately before slash");
+        $current_path = $directory;
+        $is_absolute = true;
+        $is_untouchable = true;
+      }
     }
     
     // Not defined in the POSIX specification, but behaviour that is
@@ -106,7 +128,7 @@ final class ChangeDirectoryBuiltin extends Builtin {
       $directory = $home_env.substr($directory, 1);
     } 
     
-    if (!$is_absolute) {
+    if (!$is_absolute && !$is_untouchable) {
       $components = explode('/', $directory);
       
       if (head($components) === '.' || head($components) === '..') {
@@ -138,7 +160,7 @@ final class ChangeDirectoryBuiltin extends Builtin {
       }
     }
     
-    if ($mode === 'logical') {
+    if ($mode === 'logical' && !$is_untouchable) {
       if (strlen($current_path) > 0 && $current_path[0] !== '/') {
         $pwd = getcwd();
         if (strlen($pwd) > 0 && $pwd[strlen($pwd) - 1] !== '/') {
@@ -180,12 +202,13 @@ final class ChangeDirectoryBuiltin extends Builtin {
     // this for us.  So just jump straight to step 10 in the manual and attempt
     // to perform chdir.
     
-    if (@chdir($current_path) === false) {
+    $vfs = $shell->getVirtualFSSession();
+    if (!$vfs->changeDirectoryAbsolute($current_path)) {
       throw new Exception("Unable to change directory to $current_path");
     }
     
     if ($prepare_data['output_new_dir']) {
-      $stdout->write(new StructuredFile(getcwd()));
+      $stdout->write($vfs->getFileObject($current_path));
     }
     
     $stdout->closeWrite();

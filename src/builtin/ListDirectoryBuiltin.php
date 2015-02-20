@@ -454,28 +454,29 @@ final class ListDirectoryBuiltin extends Builtin {
     }
     
     $all_entries = array();
+    $vfs = $shell->getVirtualFSSession();
     
     foreach ($paths as $path) {
-      if (@Filesystem::pathExists($path)) {
-        if (is_dir($path)) {
-          $entries = Filesystem::listDirectory($path);
+      if ($vfs->exists($path)) {
+        if ($vfs->isDir($path)) {
+          $entries = $vfs->ls($path);
           array_unshift($entries, '..');
           array_unshift($entries, '.');
           foreach ($entries as $entry) {
             if ($this->shouldAdd($parser, $entry)) {
               if ($is_raw) {
-                $stdout->write(new StructuredFile(rtrim($path, '/').'/'.$entry, $entry));
+                $stdout->write($vfs->getFileObject(rtrim($path, '/').'/'.$entry, $entry));
               } else {
-                $all_entries[] = new StructuredFile(rtrim($path, '/').'/'.$entry, $entry);
+                $all_entries[] = $vfs->getFileObject(rtrim($path, '/').'/'.$entry, $entry);
               }
             }
           }
         } else {
           if ($this->shouldAdd($parser, $path)) {
             if ($is_raw) {
-              $stdout->write(new StructuredFile($path, $path));
+              $stdout->write($vfs->getFileObject($path, $path));
             } else {
-              $all_entries[] = new StructuredFile($path, $path);
+              $all_entries[] = $vfs->getFileObject($path, $path);
             }
           }
         }
