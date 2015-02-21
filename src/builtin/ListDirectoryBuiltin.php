@@ -621,14 +621,52 @@ final class ListDirectoryBuiltin extends Builtin {
           $link_title = 'Links';
         }
         
-        $table = id(new PhutilConsoleTable())
-          ->addColumn('bits', array('title' => 'Bits'))
-          ->addColumn('links', array('title' => $link_title, 'align' => 'right'))
-          ->addColumn('owner', array('title' => 'Owner'))
-          ->addColumn('group', array('title' => 'Group'))
-          ->addColumn('size', array('title' => 'Size', 'align' => 'right'))
-          ->addColumn('timestamp', array('title' => $time_title))
-          ->addColumn('name', array('title' => 'Name'));
+        $has_timestamp = false;
+        $has_perms = false;
+        $has_size = false;
+        $has_custom = false;
+        $custom_columns = array();
+        foreach ($all_entries as $entry) {
+          if (!$has_timestamp &&
+            $entry instanceof StructuredFileTimeInterface) {
+            $has_timestamp = true;
+          }
+          if (!$has_perms &&
+            $entry instanceof StructuredFilePermissionsInterface) {
+            $has_perms = true;
+          }
+          if (!$has_size &&
+            $entry instanceof StructuredFileSizeInterface) {
+            $has_size = true;
+          }
+          if (!$has_custom &&
+            $entry instanceof StructuredFileCustomInterface) {
+            $has_custom = true;
+            foreach ($entry->getColumns() as $k => $v) {
+              $custom_columns[$k] = $v;
+            }
+          }
+        }
+        
+        $table = new PhutilConsoleTable();
+        $table->addColumn('bits', array('title' => 'Bits'));
+        $table->addColumn('links', array('title' => $link_title, 'align' => 'right'));
+        if ($has_perms) {
+          $table->addColumn('owner', array('title' => 'Owner'));
+          $table->addColumn('group', array('title' => 'Group'));
+        }
+        if ($has_size) {
+          $table->addColumn('size', array('title' => 'Size', 'align' => 'right'));
+        }
+        if ($has_timestamp) {
+          $table->addColumn('timestamp', array('title' => $time_title));
+        }
+        if ($has_custom) {
+          foreach ($custom_columns as $k => $v) {
+            $table->addColumn($k, $v);
+          }
+        }
+        $table->addColumn('name', array('title' => 'Name'));
         
         foreach ($all_entries as $entry) {
           $file_type = '-';
@@ -641,20 +679,22 @@ final class ListDirectoryBuiltin extends Builtin {
           $alternate_access = ' ';
           // TODO Check other security settings.
           
-          $timestamp = $entry->getModificationTime();
-          if ($time_type === 'access') {
-            $timestamp = $entry->getAccessTime();
-          } else if ($time_type = 'creation') {
-            $timestamp = $entry->getCreationTime();
-          }
-        
-          $formatted_timestamp = '';
-          $formatted_timestamp .= date('M', $timestamp);
-          $formatted_timestamp .= str_pad(date('j', $timestamp), 3, ' ', STR_PAD_LEFT);
-          if ($timestamp < time() - (60 * 60 * 24 * 365)) {
-            $formatted_timestamp .= ' '.date(' Y', $timestamp);
-          } else {
-            $formatted_timestamp .= ' '.date('h:i', $timestamp);
+          if ($entry instanceof StructuredFileTimeInterface) {
+            $timestamp = $entry->getModificationTime();
+            if ($time_type === 'access') {
+              $timestamp = $entry->getAccessTime();
+            } else if ($time_type = 'creation') {
+              $timestamp = $entry->getCreationTime();
+            }
+          
+            $formatted_timestamp = '';
+            $formatted_timestamp .= date('M', $timestamp);
+            $formatted_timestamp .= str_pad(date('j', $timestamp), 3, ' ', STR_PAD_LEFT);
+            if ($timestamp < time() - (60 * 60 * 24 * 365)) {
+              $formatted_timestamp .= ' '.date(' Y', $timestamp);
+            } else {
+              $formatted_timestamp .= ' '.date('h:i', $timestamp);
+            }
           }
           
           $link = $entry->getHardLinkCount();
@@ -669,15 +709,32 @@ final class ListDirectoryBuiltin extends Builtin {
             $name .= $target->getColoredFileName();
           }
           
-          $table->addRow(array(
-            'bits' => $file_type.$entry->getPermissionsCharacterString().$alternate_access,
-            'links' => $link,
-            'owner' => $entry->getOwnerName(),
-            'group' => $entry->getGroupName(),
-            'size' => $entry->getSize(),
-            'timestamp' => $formatted_timestamp,
-            'name' => $name,
-          ));
+          $row = array();
+          if ($entry instanceof StructuredFilePermissionsInterface) {
+            $perms = $entry->getPermissionsCharacterString();
+            $row['bits'] = $file_type.$perms.$alternate_access;
+          } else {
+            $row['bits'] = $file_type.$alternate_access;
+          }
+          $row['links'] = $link;
+          if ($entry instanceof StructuredFilePermissionsInterface) {
+            $row['owner'] = $entry->getOwnerName();
+            $row['group'] = $entry->getGroupName();
+          }
+          if ($entry instanceof StructuredFileSizeInterface) {
+            $row['size'] = $entry->getSize();
+          }
+          if ($entry instanceof StructuredFileTimeInterface) {
+            $row['timestamp'] = $formatted_timestamp;
+          }
+          if ($entry instanceof StructuredFileCustomInterface) {
+            foreach ($entry->getData() as $k => $v) {
+              $row[$k] = $v;
+            }
+          }
+          $row['name'] = $name;
+          
+          $table->addRow($row);
         }
         
         if ($show_headers) {

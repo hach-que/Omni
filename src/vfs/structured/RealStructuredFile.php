@@ -2,7 +2,11 @@
 
 final class RealStructuredFile
   extends Phobject
-  implements StructuredFileInterface {
+  implements
+    StructuredFileInterface,
+    StructuredFileTimeInterface,
+    StructuredFilePermissionsInterface,
+    StructuredFileSizeInterface {
 
   private $path;
   private $originalName;
