@@ -1,6 +1,6 @@
 <?php
 
-final class SystemdUnitTypeStructuredFile
+final class ZypperPackageStructuredFile
   extends Phobject
   implements
     StructuredFileInterface {
@@ -14,7 +14,7 @@ final class SystemdUnitTypeStructuredFile
   }
   
   public function getColoredFileName() {
-    return "\x1B[34;1m".$this->getFileName()."\x1B[0m";
+    return $this->getFileName();
   }
   
   public function getFileName() {
@@ -26,7 +26,7 @@ final class SystemdUnitTypeStructuredFile
   }
   
   public function isDirectory() {
-    return true;
+    return false;
   }
   
   public function getHardLinkCount() {
@@ -40,5 +40,19 @@ final class SystemdUnitTypeStructuredFile
   public function getMetaTarget() {
     return null;
   }
-
+  
+  /* ====== Package Methods ====== */
+  
+  public function install() {
+    $cmd = "sudo zypper --non-interactive in %s";
+    return id(new ExecFuture($cmd, $this->getFileName()))
+      ->resolvex();
+  }
+  
+  public function remove() {
+    $cmd = "sudo zypper --non-interactive rm %s";
+    return id(new ExecFuture($cmd, $this->getFileName()))
+      ->resolvex();
+  }
+  
 }

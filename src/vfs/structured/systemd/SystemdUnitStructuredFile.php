@@ -135,63 +135,63 @@ final class SystemdUnitStructuredFile
   /* ====== Systemd Unit Methods ====== */
   
   public function start() {
-    $cmd = "systemctl start -- %s";
+    $cmd = "sudo systemctl start -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function stop() {
-    $cmd = "systemctl stop -- %s";
+    $cmd = "sudo systemctl stop -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function reload() {
-    $cmd = "systemctl reload -- %s";
+    $cmd = "sudo systemctl reload -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function restart() {
-    $cmd = "systemctl restart -- %s";
+    $cmd = "sudo systemctl restart -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function tryRestart() {
-    $cmd = "systemctl try-restart -- %s";
+    $cmd = "sudo systemctl try-restart -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function reloadOrRestart() {
-    $cmd = "systemctl reload-or-restart -- %s";
+    $cmd = "sudo systemctl reload-or-restart -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function reloadOrTryRestart() {
-    $cmd = "systemctl reload-or-try-restart -- %s";
+    $cmd = "sudo systemctl reload-or-try-restart -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function isolate() {
-    $cmd = "systemctl isolate -- %s";
+    $cmd = "sudo systemctl isolate -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;
   }
   
   public function kill() {
-    $cmd = "systemctl kill -- %s";
+    $cmd = "sudo systemctl kill -- %s";
     list($stdout, $stderr) = id(new ExecFuture($cmd, $this->getUnitName()))
       ->resolvex();
     $this->cachedInfo = null;

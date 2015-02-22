@@ -62,6 +62,7 @@ phutil_register_library_map(array(
     'KeyValuesVisitor' => 'shell/visitor/KeyValuesVisitor.php',
     'LaunchableInterface' => 'shell/LaunchableInterface.php',
     'ListDirectoryBuiltin' => 'builtin/ListDirectoryBuiltin.php',
+    'MetaDirectoryStructuredFile' => 'vfs/structured/MetaDirectoryStructuredFile.php',
     'MethodCallReference' => 'shell/MethodCallReference.php',
     'NativeFDTestCase' => '__tests__/NativeFDTestCase.php',
     'NativeLaunchable' => 'shell/launchable/NativeLaunchable.php',
@@ -106,8 +107,7 @@ phutil_register_library_map(array(
     'SuggestionEngine' => 'suggestion/SuggestionEngine.php',
     'SuggestionProvider' => 'suggestion/SuggestionProvider.php',
     'SuggestionsTestCase' => '__tests__/SuggestionsTestCase.php',
-    'SystemdUnitStructuredFile' => 'vfs/structured/SystemdUnitStructuredFile.php',
-    'SystemdUnitTypeStructuredFile' => 'vfs/structured/SystemdUnitTypeStructuredFile.php',
+    'SystemdUnitStructuredFile' => 'vfs/structured/systemd/SystemdUnitStructuredFile.php',
     'SystemdVirtualFSProvider' => 'vfs/provider/SystemdVirtualFSProvider.php',
     'TypeConverter' => 'pipe/TypeConverter.php',
     'UserFriendlyFormatter' => 'pipe/UserFriendlyFormatter.php',
@@ -121,6 +121,10 @@ phutil_register_library_map(array(
     'Visitor' => 'shell/visitor/Visitor.php',
     'WebSocketEndpoint' => 'pipe/WebSocketEndpoint.php',
     'WhileVisitor' => 'shell/visitor/WhileVisitor.php',
+    'ZypperManagerStructuredFile' => 'vfs/structured/zypper/ZypperManagerStructuredFile.php',
+    'ZypperPackageStructuredFile' => 'vfs/structured/zypper/ZypperPackageStructuredFile.php',
+    'ZypperRepositoryStructuredFile' => 'vfs/structured/zypper/ZypperRepositoryStructuredFile.php',
+    'ZypperVirtualFSProvider' => 'vfs/provider/ZypperVirtualFSProvider.php',
   ),
   'function' => array(
     'omni_exit' => 'utils/utils.php',
@@ -190,6 +194,10 @@ phutil_register_library_map(array(
     'KeyValueVisitor' => 'Visitor',
     'KeyValuesVisitor' => 'Visitor',
     'ListDirectoryBuiltin' => 'Builtin',
+    'MetaDirectoryStructuredFile' => array(
+      'Phobject',
+      'StructuredFileInterface',
+    ),
     'MethodCallReference' => 'Phobject',
     'NativeFDTestCase' => 'PhutilTestCase',
     'NativeLaunchable' => array(
@@ -256,10 +264,6 @@ phutil_register_library_map(array(
       'StructuredFileInterface',
       'StructuredFileCustomInterface',
     ),
-    'SystemdUnitTypeStructuredFile' => array(
-      'Phobject',
-      'StructuredFileInterface',
-    ),
     'SystemdVirtualFSProvider' => 'VirtualFSProvider',
     'TypeConverter' => 'Phobject',
     'UserFriendlyFormatter' => 'Phobject',
@@ -275,5 +279,18 @@ phutil_register_library_map(array(
     'VirtualFSSession' => 'Phobject',
     'WebSocketEndpoint' => 'BaseEndpoint',
     'WhileVisitor' => 'Visitor',
+    'ZypperManagerStructuredFile' => array(
+      'Phobject',
+      'StructuredFileInterface',
+    ),
+    'ZypperPackageStructuredFile' => array(
+      'Phobject',
+      'StructuredFileInterface',
+    ),
+    'ZypperRepositoryStructuredFile' => array(
+      'Phobject',
+      'StructuredFileInterface',
+    ),
+    'ZypperVirtualFSProvider' => 'VirtualFSProvider',
   ),
 ));

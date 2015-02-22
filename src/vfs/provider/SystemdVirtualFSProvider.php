@@ -93,7 +93,7 @@ final class SystemdVirtualFSProvider extends VirtualFSProvider {
     );
     
     if (in_array($path, $dirs)) {
-      return new SystemdUnitTypeStructuredFile($path, $name);
+      return new MetaDirectoryStructuredFile($path, $name);
     } else {
       return new SystemdUnitStructuredFile($path, $name);
     }
