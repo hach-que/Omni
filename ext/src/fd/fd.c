@@ -295,6 +295,10 @@ PHP_FUNCTION(fd_pipe) {
   
   TRACE_CUSTOM("created native pipe (write) %d -> %d (read)", endpoint[1], endpoint[0]);
   
+  if (fcntl(endpoint[0], F_SETPIPE_SZ, 1048576) == EPERM) {
+    TRACE_CUSTOM("warn: unable to adjust buffer size to 1048576 for new pipe (write) %d -> %d (read)", endpoint[1], endpoint[0]);
+  }
+  
   array_init(return_value);
   add_assoc_long(return_value, "read", endpoint[0]);
   add_assoc_long(return_value, "write", endpoint[1]);
