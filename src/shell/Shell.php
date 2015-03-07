@@ -268,12 +268,17 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     try {
       while (true) {
         try {
+          omni_trace("reading object for pipe lambda");
           $obj = $stdin->read();
           
+          omni_trace("read an object from stdin, calling iterator");
           $result = $function->callIterator($this, $argv, $obj);
+          omni_trace("called iterator, writing result to stdout");
           
           $stdout->write($result);
+          omni_trace("wrote object to stdout");
         } catch (NativePipeClosedException $ex) {
+          omni_trace("stdin closed for pipe lambda");
           $stderr->closeWrite();
           $stdout->closeWrite();
           $stdin->closeRead();

@@ -132,7 +132,9 @@ final class PipelineVisitor extends Visitor {
         $result = array();
         while (true) {
           try {
+            omni_trace("reading next object from captured expression");
             $result[] = $capture_endpoint->read();
+            omni_trace("read an object from the captured expression");
           } catch (NativePipeClosedException $ex) {
             break;
           }
