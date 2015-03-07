@@ -69,7 +69,12 @@ EOF;
       }
     }
     
-    $stdout->write(new FutureIterator($futures));
+    $iterator = new FutureIterator($futures);
+    
+    // TODO: Make this configurable (but safe for now)
+    $iterator->limit(8);
+    
+    $stdout->write($iterator);
     
     $stdout->closeWrite();
   }
