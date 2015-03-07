@@ -12,6 +12,11 @@ final class ForeachVisitor extends Visitor {
       $expression = $expression->getCopy();
     }
     
+    if (is_string($expression)) {
+      $expander = new ExpressionExpander();
+      $expression = $expander->expandFilePath($expression);
+    }
+    
     $mapping_count = count($data['children'][1]['children']);
     if ($mapping_count === 1) {
       $key_target = null;
