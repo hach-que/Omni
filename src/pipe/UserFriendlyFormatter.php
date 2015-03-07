@@ -122,8 +122,13 @@ final class UserFriendlyFormatter extends Phobject {
     // side effects.
     $blacklist = array(
       'Future' => array(
-        'isReady'
-      )
+        'isReady',
+      ),
+      'ExecFuture' => array(
+        'getPID',
+        'getReadSockets',
+        'getWriteSockets',
+      ),
     );
     
     $blacklist_rules = array();
