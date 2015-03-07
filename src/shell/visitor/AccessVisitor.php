@@ -18,6 +18,12 @@ final class AccessVisitor extends Visitor {
       }
     }
     
+    if (is_string($parent)) {
+      // Wrap the string in a StringOperator so we
+      // can call methods on it.
+      $parent = new StringOperator($parent);
+    }
+    
     if ($parent instanceof ArrayContainer) {
       if ($is_assignment) {
         if ($child === '[]') {
