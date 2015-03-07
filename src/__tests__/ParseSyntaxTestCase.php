@@ -167,4 +167,15 @@ EOF
     }
   }
   
+  public function testEmptyString() {
+    $strings = array(
+      'git commit -a -m ""',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse(': '.$str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
 }
