@@ -50,6 +50,7 @@ abstract class Visitor {
       'double_quoted' => 'DoubleQuotedVisitor',
       'expression' => 'ExpressionVisitor',
       'foreach' => 'ForeachVisitor',
+      'for' => 'ForVisitor',
       'fragments' => 'FragmentsVisitor',
       'fragment' => 'FragmentVisitor',
       'function' => 'FunctionVisitor',

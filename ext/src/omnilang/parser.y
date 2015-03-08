@@ -270,6 +270,35 @@ cmd_statement:
     ORIGINAL_NODE_NODE_APPEND($$, $9);
     ORIGINAL_NODE_APPEND($$, $10);
   } |
+  KEYWORD_FOR cmd_optional_whitespace 
+    cmd_fragment cmd_optional_whitespace
+    cmd_fragment cmd_optional_whitespace
+    cmd_fragment cmd_optional_whitespace
+    KEYWORD_AS cmd_optional_whitespace cmd_mapping 
+    BEGIN_BRACE cmd_statements END_BRACE
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_for);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($5));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($7));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($11));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($13));
+    
+    ORIGINAL_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+    ORIGINAL_NODE_APPEND($$, $4);
+    ORIGINAL_NODE_NODE_APPEND($$, $5);
+    ORIGINAL_NODE_APPEND($$, $6);
+    ORIGINAL_NODE_NODE_APPEND($$, $7);
+    ORIGINAL_NODE_APPEND($$, $8);
+    ORIGINAL_NODE_APPEND($$, $9);
+    ORIGINAL_NODE_APPEND($$, $10);
+    ORIGINAL_NODE_NODE_APPEND($$, $11);
+    ORIGINAL_NODE_APPEND($$, $12);
+    ORIGINAL_NODE_NODE_APPEND($$, $13);
+    ORIGINAL_NODE_APPEND($$, $14);
+  } |
   KEYWORD_RETURN CMD_WHITESPACE cmd_fragment
   {
     VALUE_NODE($$) = ast_node_create(&node_type_return);
