@@ -167,13 +167,67 @@ EOF
     }
   }
   
-  public function testEmptyString() {
+  public function testEmptyDoubleQuotedStringAtEnd() {
     $strings = array(
+      '""',
+      'git ""',
+      'git commit ""',
       'git commit -a -m ""',
     );
     
     foreach ($strings as $str) {
-      $result = omnilang_parse(': '.$str);
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
+  public function testEmptySingleQuotedStringAtEnd() {
+    $strings = array(
+      '\'\'',
+      'git \'\'',
+      'git commit \'\'',
+      'git commit -a -m \'\'',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
+  public function testGitCommit() {
+    $strings = array(
+      'git',
+      'git commit',
+      'git commit -a -m',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
+  public function testEmptyDoubleQuotedStringInMiddle() {
+    $strings = array(
+      'git "" commit',
+      'git commit "" -a -m',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
+      $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
+    }
+  }
+  
+  public function testEmptySingleQuotedStringInMiddle() {
+    $strings = array(
+      'git \'\' commit',
+      'git commit \'\' -a -m',
+    );
+    
+    foreach ($strings as $str) {
+      $result = omnilang_parse($str);
       $this->assertTrue(is_array($result), omnilang_get_error().'~ : '.$str);
     }
   }
