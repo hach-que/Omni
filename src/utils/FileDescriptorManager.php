@@ -272,7 +272,7 @@ final class FileDescriptorManager extends Phobject {
         throw new Exception('error: write: '.idx(fd_get_error(), 'error'));
       } else if ($result === true) {
         // Non-blocking; not ready for write.
-        usleep(5000);
+        throw new NativePipeNonblockingWriteNotReadyException($buffer);
       } else if ($result === null) {
         // Pipe closed.
         throw new NativePipeClosedException();

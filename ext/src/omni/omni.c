@@ -61,8 +61,15 @@ PHP_FUNCTION(omni_pipe) {
   add_assoc_long(return_value, "write", endpoint[1]);
 }
 
+PHP_FUNCTION(omni_timestamp64) {
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  RETURN_LONG(tv.tv_sec*(uint64_t)1000000+tv.tv_usec);
+}
+
 PHP_MODULE(omni,
   PHP_FE(omni_execvp, NULL)
   PHP_FE(omni_pipe, NULL)
+  PHP_FE(omni_timestamp64, NULL)
 )
 

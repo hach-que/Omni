@@ -40,6 +40,12 @@ zend_module_entry name ## _module_entry = { \
 
 #include <unistd.h>
 
+inline uint64_t get_timestamp64() {
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
+}
+
 //#define TRACE_FUNCTION_CALL() printf("%d: native call: %s\n", getpid(), __func__);
-#define TRACE_CUSTOM(msg, ...) { if (_tracing_enabled) { fprintf(stderr, "%d: native call: " #msg "\n", getpid(), ## __VA_ARGS__); } }
+#define TRACE_CUSTOM(msg, ...) { if (_tracing_enabled) { fprintf(stderr, "%d %lu: native call: " #msg "\n", getpid(), get_timestamp64(), ## __VA_ARGS__); } }
 #define TRACE_FUNCTION_CALL()

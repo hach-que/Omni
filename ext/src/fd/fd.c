@@ -237,6 +237,8 @@ PHP_FUNCTION(fd_write) {
   
   result = write(fd, buffer, buffer_len);
   
+  TRACE_CUSTOM("wrote to file descriptor %d", fd);
+  
   if (result == -1) {
     // Error
     if (errno == EAGAIN) {
@@ -295,8 +297,8 @@ PHP_FUNCTION(fd_pipe) {
   
   TRACE_CUSTOM("created native pipe (write) %d -> %d (read)", endpoint[1], endpoint[0]);
   
-  if (fcntl(endpoint[0], F_SETPIPE_SZ, 1048576) == EPERM) {
-    TRACE_CUSTOM("warn: unable to adjust buffer size to 1048576 for new pipe (write) %d -> %d (read)", endpoint[1], endpoint[0]);
+  if (fcntl(endpoint[0], F_SETPIPE_SZ, PIPE_BUF) == EPERM) {
+    TRACE_CUSTOM("warn: unable to adjust buffer size to %d for new pipe (write) %d -> %d (read)", PIPE_BUF, endpoint[1], endpoint[0]);
   }
   
   array_init(return_value);

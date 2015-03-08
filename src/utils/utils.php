@@ -48,6 +48,7 @@ function omni_exit($code) {
 function omni_trace($message) {
   if (OmniTrace::isTracing()) {
     $pid = posix_getpid();
+    $timestamp = omni_timestamp64();
     $file = @fopen(OmniTrace::getTraceDirectory()."/".$pid.".trace", 'a');
     if ($file) {
       fwrite($file, $message."\n");
@@ -56,6 +57,6 @@ function omni_trace($message) {
 
     static $stderr;
     $stderr = fopen('php://stderr', 'w+');
-    fwrite($stderr, $pid.": ".$message."\n");
+    fwrite($stderr, $pid." ".$timestamp.": ".$message."\n");
   }
 }
