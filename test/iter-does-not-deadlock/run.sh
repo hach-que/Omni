@@ -1,5 +1,22 @@
 #!/bin/omni
 
-iter IMG_1138.dng | () => { return $(new -t ExecFuture "convert %s %s.png" $_ $_) }
+: $arr = @()
+for 1 150 1 as $v {
+  : $arr->[] = $v
+}
 
-: $capture = $(iter IMG_1138.dng | () => { return $(new -t ExecFuture "convert %s %s.png" $_ $_) })
+#iter $arr | () => { return $(new -t ExecFuture "echo %s" $_) }
+
+echo "Constructing futures..."
+: $futures = $(iter $arr | () => { return $(new -t ExecFuture "usleep %s" $_) })
+
+echo "Executing futures..."
+foreach $(futures $futures) as $v {
+  echo ($v->command)
+}
+
+#echo $arr
+
+#iter IMG_1138.dng | () => { return $(new -t ExecFuture "convert %s %s.png" $_ $_) }
+
+#: $capture = $(iter IMG_1138.dng | () => { return $(new -t ExecFuture "convert %s %s.png" $_ $_) })

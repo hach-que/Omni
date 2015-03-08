@@ -102,6 +102,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('function-1');
   }
   
+  public function testIterDoesNotDeadlock() {
+    $this->runFunctionalTest('iter-does-not-deadlock');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;
