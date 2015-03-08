@@ -41,6 +41,10 @@ final class NonblockingWriteBuffer extends Phobject {
   
   public function flush() {
     $current = strlen($this->buffer);
+    if ($current === 0) {
+      return; 
+    }
+    
     omni_trace("flushing non-blocking write buffer; $current bytes in buffer");
     try {
       omni_trace("change blocking mode to non-blocking");

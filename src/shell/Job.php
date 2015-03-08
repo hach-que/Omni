@@ -161,7 +161,8 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     Shell $shell,
     PipeInterface $stdin,
     PipeInterface $stdout,
-    PipeInterface $stderr) {
+    PipeInterface $stderr,
+    $stdout_is_captured = false) {
     
     $pipe_prev = $stdin;
     $pipe_next = null;
@@ -170,7 +171,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   
     $this->temporaryPipes = array();
     $this->temporaryPipes[] = $stdin;
-    $this->temporaryPipes[] = $stdout;
+    if (!$stdout_is_captured) {
+      $this->temporaryPipes[] = $stdout;
+    }
     $this->temporaryPipes[] = $stderr;
     
     omni_trace("keep track of pipes to run");
@@ -227,6 +230,12 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       if ($process !== null) {
         $this->processes[] = $process;
       }
+    }
+    
+    if ($stdout_is_captured) {
+      omni_trace($stdout->getName()." is captured; explicitly finalizing and then leaving to run untracked");
+      $stdout->markFinalized();
+      $stdout->getControllerProcess(true);
     }
     
     omni_trace("getting ready to launch executables");

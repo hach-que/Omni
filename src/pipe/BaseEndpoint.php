@@ -112,7 +112,7 @@ abstract class BaseEndpoint extends Phobject {
         return json_decode($data);
       case self::FORMAT_BYTE_STREAM:
         $this->setReadBlockingInternal(false);
-        $data = $this->readInternal(4096);
+        $data = $this->readInternal(4096, false);
         if ($data === true) {
           // No data available yet (EAGAIN).
           return '';

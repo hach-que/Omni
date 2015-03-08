@@ -285,8 +285,24 @@ final class Endpoint extends BaseEndpoint {
     FileDescriptorManager::setBlocking($this->getReadFD(), $blocking);
   }
     
-  protected function readInternal($length) {
-    return FileDescriptorManager::read($this->getReadFD(), $length);
+  protected function readInternal($length, $require_length = true) {
+    if (!$require_length) {
+      return FileDescriptorManager::read($this->getReadFD(), $length);
+    }
+  
+    // Ensure we always read length if there's no exception.  We have to
+    // perform buffering at this level because pipes may write partial
+    // data (because of the native buffering limits).
+    $buffer = '';
+    $read = 0;
+    $next = $length;
+    while ($read < $length) {
+      $data = FileDescriptorManager::read($this->getReadFD(), $next);
+      $buffer .= $data;
+      $read += strlen($data);
+      $next -= strlen($data);
+    }
+    return $buffer;
   }
   
 }

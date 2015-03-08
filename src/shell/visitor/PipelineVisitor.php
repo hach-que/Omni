@@ -111,7 +111,8 @@ final class PipelineVisitor extends Visitor {
         $shell,
         $stdin_pipe,
         $stdout_pipe,
-        $stderr_pipe);
+        $stderr_pipe,
+        $data['data'] === 'expression' && idx($expression_options, '?', false) === false);
     } catch (Exception $ex) {
       $job->killTemporaryPipes();
       throw $ex;
