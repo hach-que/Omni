@@ -483,6 +483,7 @@ class Pipe extends Phobject implements PipeInterface {
         if ($call['endpoint-type'] === 'inbound') {
           $this->inboundEndpoints[$call['index']] = $endpoint;
         } else {
+          $endpoint->enableWriteBuffering();
           $this->outboundEndpoints[$call['index']] = $endpoint;
           $this->sendPendingObjects();
         }
@@ -678,6 +679,17 @@ class Pipe extends Phobject implements PipeInterface {
     
     omni_trace("begin update");
     
+    omni_trace("flush existing write buffers");
+    
+    // TODO: If deadlocks still occur, we might have to set a timeout
+    // on the select() operation so that we can re-flush the buffers on
+    // a regular schedule.
+    foreach ($this->outboundEndpoints as $endpoint) {
+      $endpoint->flushWriteBuffer();
+    }
+    
+    omni_trace("prepare for select in update");
+    
     $real_inbound_endpoints = 0;
     foreach ($this->inboundEndpoints as $key => $endpoint) {
       omni_trace("add endpoint read ".$endpoint->getReadFD());
@@ -696,11 +708,34 @@ class Pipe extends Phobject implements PipeInterface {
       $inbound_fds[] = $this->controllerDataToControllerPipe->getReadFD();
     }
     
+    
     if ($real_inbound_endpoints === 0) {
       if ($this->isFinalized) {
         // No further update() calls will result in more activity.
         omni_trace(
-          "no inbound endpoints, terminating");
+          "no inbound endpoints, ready to terminate");
+          
+        omni_trace(
+          "wait until all outbound endpoints are flushed");
+        $has_flushed_all = false;
+        while (!$has_flushed_all) {
+          $all_outbound_endpoints_flushed = true;
+          foreach ($this->outboundEndpoints as $key => $endpoint) {
+            $endpoint->flushWriteBuffer();
+            if (!$endpoint->isWriteBufferEmpty()) {
+              $all_outbound_endpoints_flushed = false;
+            }
+          }
+          
+          if ($all_outbound_endpoints_flushed) {
+            $has_flushed_all = true;
+          } else {
+            usleep(5000);
+          }
+        }
+        
+        omni_trace(
+          "all outbound data flushed, terminating");
         return false;
       }
     }

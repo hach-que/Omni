@@ -15,7 +15,9 @@ final class Endpoint extends BaseEndpoint {
   private $ownerIndex = null;
   private $ownerType = null;
   private $ownerSpecialType = null;
-
+  private $writeBufferingEnabled = false;
+  private $writeBuffer = null;
+  
   public function __construct($pipe = null) {
     if ($pipe === null) {
       $this->nativePipe = null; /* Pipe is pending until startController */
@@ -253,12 +255,30 @@ final class Endpoint extends BaseEndpoint {
     }
   }
   
+  public function enableWriteBuffering() {
+    $this->writeBufferingEnabled = true;
+    $this->writeBuffer = new NonblockingWriteBuffer($this->getWriteFD());
+  }
+  
+  public function flushWriteBuffer() {
+    $this->writeBuffer->flush();
+  }
+  
+  public function isWriteBufferEmpty() {
+    return $this->writeBuffer->isEmpty();
+  }
+  
   
   /* ----- ( BaseEndpoint ) ------------------------------------------------- */
   
   
   protected function writeInternal($data) {
-    return FileDescriptorManager::write($this->getWriteFD(), $data);
+    if ($this->writeBufferingEnabled) {
+      $this->writeBuffer->write($data);
+      $this->writeBuffer->flush();
+    } else {
+      FileDescriptorManager::write($this->getWriteFD(), $data);
+    }
   }
   
   protected function setReadBlockingInternal($blocking) {
