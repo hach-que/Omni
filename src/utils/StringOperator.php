@@ -23,6 +23,18 @@ final class StringOperator extends Phobject {
     }
   }
   
+  public function trim() {
+    return trim($this->str);
+  }
+  
+  public function ltrim() {
+    return ltrim($this->str);
+  }
+  
+  public function rtrim() {
+    return rtrim($this->str);
+  }
+  
   public function getLength() {
     return strlen($this->str);
   }
