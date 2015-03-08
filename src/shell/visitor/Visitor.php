@@ -40,6 +40,7 @@ abstract class Visitor {
   protected function visitChildCall(Shell $shell, array $child, $func) {
     $mappings = array(
       'access' => 'AccessVisitor',
+      'add' => 'AddVisitor',
       'arguments' => 'ArgumentsVisitor',
       'array_decl' => 'ArrayDeclVisitor',
       'array_def' => 'ArrayDefVisitor',

@@ -10,6 +10,7 @@ phutil_register_library_map(array(
   '__library_version__' => 2,
   'class' => array(
     'AccessVisitor' => 'shell/visitor/AccessVisitor.php',
+    'AddVisitor' => 'shell/visitor/AddVisitor.php',
     'ArgumentsVisitor' => 'shell/visitor/ArgumentsVisitor.php',
     'ArrayContainer' => 'utils/ArrayContainer.php',
     'ArrayDeclVisitor' => 'shell/visitor/ArrayDeclVisitor.php',
@@ -135,6 +136,7 @@ phutil_register_library_map(array(
   ),
   'xmap' => array(
     'AccessVisitor' => 'Visitor',
+    'AddVisitor' => 'Visitor',
     'ArgumentsVisitor' => 'Visitor',
     'ArrayContainer' => 'Phobject',
     'ArrayDeclVisitor' => 'Visitor',
