@@ -65,13 +65,9 @@ EOF;
     if ($parser->getArg('type')) {
       $type_name = $parser->getArg('type');
       
-      try {
-        if (class_exists('Structured'.$parser->getArg('type'))) {
-          $type_name = 'Structured'.$parser->getArg('type');
-        }
-      } catch (PhutilMissingSymbolException $ex) {
-        // This will fail later on if the type doesn't exist
-        // at all.
+      if ($type_name === 'File') {
+        // TODO We should probably use the VFS layer here...
+        $type_name = 'RealStructuredFile';
       }
       
       $stdout->write(newv($type_name, $parser->getArg('args')));
