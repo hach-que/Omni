@@ -106,6 +106,14 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('iter-does-not-deadlock');
   }
   
+  public function testForLoop1() {
+    $this->runFunctionalTest('for-loop-1');
+  }
+  
+  public function testCaptureLambda() {
+    $this->runFunctionalTest('capture-lambda');
+  }
+  
   private function runFunctionalTest($name, $args = null) {
     $omni = phutil_get_library_root('omni').'/../bin/omni';
     $cwd = phutil_get_library_root('omni').'/../test/'.$name;

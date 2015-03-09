@@ -10,6 +10,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   private $userHasBeenNotifiedOfNewStatus = false;
   private $command;
   private $temporaryPipes;
+  private $processesIgnoredForCompletion = array();
   
   public function hasUserBeenNotifiedOfNewStatus() {
     return $this->userHasBeenNotifiedOfNewStatus;
@@ -85,6 +86,10 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   
   public function isCompleted() {
     foreach ($this->processes as $process) {
+      if (in_array($process, $this->processesIgnoredForCompletion)) {
+        // Ignore for isCompleted status
+        continue;
+      }
       if (!$process->isCompleted()) {
         return false;
       }
@@ -138,6 +143,14 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     $this->temporaryPipes = null;
   }
   
+  public function ignoreProcessForCompletion(ProcessInterface $process) {
+    $this->processesIgnoredForCompletion[] = $process;
+  }
+  
+  public function clearProcessesIgnoredForCompletion() {
+    $this->processesIgnoredForCompletion = array();
+  }
+  
   /**
    * Returns true if this job has a single stage (with no
    * redirections or pipes), and the single stage will
@@ -171,9 +184,7 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   
     $this->temporaryPipes = array();
     $this->temporaryPipes[] = $stdin;
-    if (!$stdout_is_captured) {
-      $this->temporaryPipes[] = $stdout;
-    }
+    $this->temporaryPipes[] = $stdout;
     $this->temporaryPipes[] = $stderr;
     
     omni_trace("keep track of pipes to run");
@@ -229,13 +240,12 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       $process = $pipe->getControllerProcess(true);
       if ($process !== null) {
         $this->processes[] = $process;
+        
+        if ($pipe === $stdout && $stdout_is_captured) {
+          omni_trace("marking standard output process as ignored for completion");
+          $this->ignoreProcessForCompletion($process);
+        }
       }
-    }
-    
-    if ($stdout_is_captured) {
-      omni_trace($stdout->getName()." is captured; explicitly finalizing and then leaving to run untracked");
-      $stdout->markFinalized();
-      $stdout->getControllerProcess(true);
     }
     
     omni_trace("getting ready to launch executables");

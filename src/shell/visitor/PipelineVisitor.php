@@ -118,15 +118,13 @@ final class PipelineVisitor extends Visitor {
       throw $ex;
     }
     
-    $job->closeTemporaryPipes();
-    
-    $job->untrackTemporaryPipes();
+    $func_result = null;
     
     if ($data['data'] === 'expression') {
       if (idx($expression_options, '?', false) === true) {
         // The result of the expression capture is the exit code, not the standard output.
         $capture_endpoint->closeRead();
-        return $job->getExitCode();
+        $func_result = $job->getExitCode();
       } else {
         omni_trace("reading data from stdout endpoint for expression pipeline");
         
@@ -141,20 +139,35 @@ final class PipelineVisitor extends Visitor {
           }
         }
         
+        omni_trace("clearing ignored set of processes from job");
+        $job->clearProcessesIgnoredForCompletion();
+        
+        omni_trace("waiting for standard output controller process to exit");
+        $shell->scheduleJob($job);
+        
         omni_trace("returning result of stdout from pipeline");
         
         if (count($result) === 0) {
-          return null;
+          omni_trace("no data returned from capture");
+          $func_result = null;
         } else if (count($result) === 1) {
-          return $result[0];
+          omni_trace("single result returned from capture");
+          $func_result = $result[0];
         } else {
-          return $result;
+          omni_trace("array returned from capture");
+          $func_result = $result;
         }
       }
     } else {
       omni_trace("returning new job object");
-      return $job;
+      $func_result = $job;
     }
+    
+    $job->closeTemporaryPipes();
+    
+    $job->untrackTemporaryPipes();
+    
+    return $func_result;
   }
   
 }
