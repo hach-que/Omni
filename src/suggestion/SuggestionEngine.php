@@ -56,7 +56,15 @@ final class SuggestionEngine extends Phobject {
     
     omni_trace("getSuggestions: sort results by priority");
     
-    return isort($suggestions, 'priority');
+    $sorted_suggestions = array();
+    $groups = igroup($suggestions, 'priority');
+    foreach ($groups as $priority => $suggestions) {
+      $s = isort($suggestions, 'length');
+      foreach ($s as $a) {
+        $sorted_suggestions[] = $a;
+      }
+    }
+    return $sorted_suggestions;
   }
   
   public function traverseToPosition($current_node, $target, $node_start = 0, $parents = null) {

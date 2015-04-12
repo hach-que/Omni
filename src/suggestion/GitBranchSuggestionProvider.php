@@ -239,15 +239,18 @@ final class GitBranchSuggestionProvider extends SuggestionProvider {
           $entry = $match;
           if (strlen($entry) >= strlen($last_component)) {
             if (substr($entry, 0, strlen($last_component)) === $last_component) {
-              $append = substr($entry, strlen($last_component));
-              $append = str_replace(" ", "' '", $append); // TODO Make this nicer
-              $results[] = array(
-                'append' => $append,
-                'node_replace' => $current['original'].$append,
-                'description' => ($priority < 2000) ? 'git plumbing' : 'git subcommand',
-                'priority' => $priority,
-                'wrap_quotes' => !$safe_to_append,
-              );
+              if ($current['original'] === $command) {
+                $append = substr($entry, strlen($last_component));
+                $append = str_replace(" ", "' '", $append); // TODO Make this nicer
+                $results[] = array(
+                  'append' => $append,
+                  'node_replace' => $current['original'].$append,
+                  'length' => strlen($current['original'].$append),
+                  'description' => ($priority < 2000) ? 'git plumbing' : 'git subcommand',
+                  'priority' => $priority,
+                  'wrap_quotes' => !$safe_to_append,
+                );
+              }
             }
           }
         }
@@ -270,6 +273,7 @@ final class GitBranchSuggestionProvider extends SuggestionProvider {
             $results[] = array(
               'append' => $append,
               'node_replace' => $current['original'].$append,
+              'length' => strlen($current['original'].$append),
               'description' => 'branch in repository',
               'priority' => 2000,
               'wrap_quotes' => !$safe_to_append,

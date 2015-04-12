@@ -67,6 +67,7 @@ final class FileSuggestionProvider extends SuggestionProvider {
           $results[] = array(
             'append' => $append,
             'node_replace' => $current['original'].$append,
+            'length' => strlen($current['original'].$append),
             'description' => 'existing '.$type,
             'priority' => 1000,
             'wrap_quotes' => !$safe_to_append,

@@ -135,11 +135,13 @@ final class InteractiveTTYEditline extends Phobject {
   public function renderFullSuggestions() {
     $table = id(new PhutilConsoleTable())
       ->addColumn('name', array('title' => 'Name'))
+      ->addColumn('priority', array('title' => 'Priority'))
       ->addColumn('description', array('title' => 'Description'));
     
     foreach ($this->suggestions as $suggestion) {
       $table->addRow(array(
         'name' => $suggestion['node_replace'],
+        'priority' => $suggestion['priority'],
         'description' => $suggestion['description'],
       ));
     }
