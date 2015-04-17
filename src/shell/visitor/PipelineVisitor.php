@@ -153,6 +153,30 @@ final class PipelineVisitor extends Visitor {
         } else if (count($result) === 1) {
           omni_trace("single result returned from capture");
           $func_result = $result[0];
+          
+          if (idx($expression_options, 'nt', false) === false &&
+              idx($expression_options, 'notrim', false) === false) {
+            omni_trace("trimming result because it's a string");
+            if (is_string($func_result)) {
+              $func_result = trim($func_result);
+            } else {
+              $func_result = new BytesContainer(
+                trim((string)$func_result));
+            }
+          }
+          
+          if (is_string($func_result) || $func_result instanceof BytesContainer) {
+            if (idx($expression_options, 's', false) === true ||
+                idx($expression_options, 'split', false) === true) {
+              omni_trace("splitting result because it's a string");
+              if (is_string($func_result)) {
+                $func_result = explode(' ', $func_result);
+              } else {
+                $func_result = explode(' ', new BytesContainer(
+                  (string)$func_result));
+              }
+            }
+          }
         } else {
           omni_trace("array returned from capture");
           $func_result = $result;
