@@ -38,25 +38,27 @@ final class ExecutableSuggestionProvider extends SuggestionProvider {
     $add_entries = array();
     
     foreach ($paths as $path) {
-      $entries = Filesystem::listDirectory($path);
-      foreach ($entries as $entry) {
-        if (is_executable($path.'/'.$entry)) {
-          if (strlen($entry) >= strlen($last_component)) {
-            if (substr($entry, 0, strlen($last_component)) === $last_component) {
-              $append = substr($entry, strlen($last_component));
-              $append = str_replace(" ", "' '", $append); // TODO Make this nicer
-              if (array_key_exists($append, $add_entries)) {
-                continue;
+      if (is_dir($path)) {
+        $entries = Filesystem::listDirectory($path);
+        foreach ($entries as $entry) {
+          if (is_executable($path.'/'.$entry)) {
+            if (strlen($entry) >= strlen($last_component)) {
+              if (substr($entry, 0, strlen($last_component)) === $last_component) {
+                $append = substr($entry, strlen($last_component));
+                $append = str_replace(" ", "' '", $append); // TODO Make this nicer
+                if (array_key_exists($append, $add_entries)) {
+                  continue;
+                }
+                $add_entries[$append] = true;
+                $results[] = array(
+                  'append' => $append,
+                  'node_replace' => $current['original'].$append,
+                  'length' => strlen($current['original'].$append),
+                  'description' => 'executable',
+                  'priority' => 2000,
+                  'wrap_quotes' => !$safe_to_append,
+                );
               }
-              $add_entries[$append] = true;
-              $results[] = array(
-                'append' => $append,
-                'node_replace' => $current['original'].$append,
-                'length' => strlen($current['original'].$append),
-                'description' => 'executable',
-                'priority' => 2000,
-                'wrap_quotes' => !$safe_to_append,
-              );
             }
           }
         }
