@@ -7,6 +7,7 @@ final class InteractiveTTYEditline extends Phobject {
   private $maxSuggestions = 0;
   private $simulate;
   private $raw = false;
+  private $noOmniRC = false;
   private $continuingLine = false;
   private $continuingLineBuffer = '';
   private $visibleSuggestionsEnabled = false;
@@ -14,6 +15,10 @@ final class InteractiveTTYEditline extends Phobject {
   
   public function setRaw($raw) {
     $this->raw = $raw;
+  }
+  
+  public function setNoOmniRC($no_omnirc) {
+    $this->noOmniRC = $no_omnirc;
   }
   
   public function simulate() {
@@ -37,6 +42,13 @@ final class InteractiveTTYEditline extends Phobject {
   public function run() {
     $this->shell = new Shell();
     $this->shell->initialize();
+    
+    if (!$this->noOmniRC) {
+      $home = getenv('HOME');
+      if (file_exists($home.'/.omnirc') && is_executable($home.'/.omnirc')) {
+        $this->shell->execute($home.'/.omnirc');
+      }
+    }
     
     if (!$this->raw) {
       editline_init();

@@ -159,7 +159,7 @@ final class PipelineVisitor extends Visitor {
             omni_trace("trimming result because it's a string");
             if (is_string($func_result)) {
               $func_result = trim($func_result);
-            } else {
+            } else if ($func_result instanceof BytesContainer) {
               $func_result = new BytesContainer(
                 trim((string)$func_result));
             }
@@ -171,7 +171,7 @@ final class PipelineVisitor extends Visitor {
               omni_trace("splitting result because it's a string");
               if (is_string($func_result)) {
                 $func_result = explode(' ', $func_result);
-              } else {
+              } else if ($func_result instanceof BytesContainer) {
                 $func_result = explode(' ', new BytesContainer(
                   (string)$func_result));
               }

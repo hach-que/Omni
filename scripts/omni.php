@@ -116,6 +116,10 @@ $result = $args->parsePartial(
         'Bundles the specified script with Omni, so that you can '.
         'run the script without Omni installed.',
     ),
+    array(
+      'name'     => 'no-omnirc',
+      'help'     => 'Do not execute ~/.omnirc at startup.',
+    ),
 ));
 
 if ($args->getArg('trace')) {
@@ -209,6 +213,9 @@ if (posix_isatty(Shell::STDIN_FILENO) && count($command) === 0) {
 
   // Run as an interactive shell.
   $tty = new InteractiveTTYEditline();
+  if ($args->getArg('no-omnirc')) {
+    $tty->setNoOmniRC(true);
+  }
   if ($args->getArg('raw')) {
     $tty->setRaw(true);
   }

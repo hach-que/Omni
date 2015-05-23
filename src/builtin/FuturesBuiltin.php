@@ -57,13 +57,13 @@ EOF;
     $parser->parseFull($this->getArguments($shell, $job, $prepare_data));
     
     $futures = array();
-    foreach ($parser->getArg('futures') as $future_arg) {
+    foreach ($parser->getArg('futures') as $key => $future_arg) {
       if ($future_arg instanceof Future) {
-        $futures[] = $future_arg;
+        $futures[$key] = $future_arg;
       } else if (is_array($future_arg)) {
-        foreach ($future_arg as $future) {
+        foreach ($future_arg as $subkey => $future) {
           if ($future instanceof Future) {
-            $futures[] = $future;
+            $futures[$subkey] = $future;
           }
         }
       }

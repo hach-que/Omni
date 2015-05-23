@@ -28,7 +28,12 @@ final class ExpressionExpander extends Phobject {
     if (count($results) === 0) {
       return null;
     } else if (count($results) === 1) {
-      return head($results);
+      $result = head($results);
+      if ($result[strlen($result) - 1] == '/') {
+        return substr($result, 0, -1);
+      } else {
+        return $result;
+      }
     } else {
       return $results;
     }
