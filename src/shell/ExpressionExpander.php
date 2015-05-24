@@ -30,9 +30,9 @@ final class ExpressionExpander extends Phobject {
     } else if (count($results) === 1) {
       $result = head($results);
       if ($result[strlen($result) - 1] == '/') {
-        return substr($result, 0, -1);
+        return str_replace('\\*', '*', substr($result, 0, -1));
       } else {
-        return $result;
+        return str_replace('\\*', '*', $result);
       }
     } else {
       return $results;

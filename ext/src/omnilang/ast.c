@@ -41,6 +41,13 @@ struct tagbstring node_type_array_def = bsStatic("array_def");
 struct tagbstring node_type_array_element = bsStatic("array_element");
 struct tagbstring node_type_function = bsStatic("function");
 struct tagbstring node_type_return = bsStatic("return");
+struct tagbstring node_type_not = bsStatic("not");
+struct tagbstring node_type_equals = bsStatic("equals");
+struct tagbstring node_type_not_equals = bsStatic("not_equals");
+struct tagbstring node_type_less_than_equals = bsStatic("less_than_equals");
+struct tagbstring node_type_less_than = bsStatic("less_than");
+struct tagbstring node_type_greater_than_equals = bsStatic("greater_than_equals");
+struct tagbstring node_type_greater_than = bsStatic("greater_than");
 
 struct tagbstring pipeline_type_foreground = bsStatic("foreground");
 struct tagbstring pipeline_type_background = bsStatic("background");

@@ -48,6 +48,13 @@ extern struct tagbstring node_type_array_def;
 extern struct tagbstring node_type_array_element;
 extern struct tagbstring node_type_function;
 extern struct tagbstring node_type_return;
+extern struct tagbstring node_type_not;
+extern struct tagbstring node_type_equals;
+extern struct tagbstring node_type_not_equals;
+extern struct tagbstring node_type_less_than_equals;
+extern struct tagbstring node_type_less_than;
+extern struct tagbstring node_type_greater_than_equals;
+extern struct tagbstring node_type_greater_than;
 
 extern struct tagbstring pipeline_type_foreground;
 extern struct tagbstring pipeline_type_background;

@@ -82,6 +82,7 @@ const_bstring get_current_state_name();
 <IN_CMD>\=\>                                            { C_OCOPY(string); yylval.string.value = bfromcstr(yytext); return CMD_MAP; }
 <IN_CMD>[a-zA-Z\/_0-9\.\-\~\^\=\*\+\?\%\@\<\>]+         { C_OCOPY(string); yylval.string.value = bfromcstr(yytext); return CMD_FRAGMENT; }
 <IN_CMD>\\\                                             { C_OCOPY(string); yylval.string.value = bfromcstr(" "); return CMD_FRAGMENT; }
+<IN_CMD>\\                                              { C_OCOPY(string); yylval.string.value = bfromcstr("\\"); return CMD_FRAGMENT; }
 
 <IN_CMD>\$\(                                            { C_OCOPY(token); lex_push(IN_CMD); return CMD_BEGIN_COMMAND; }
 <IN_CMD>\(                                              { C_OCOPY(token); lex_push(IN_EXPR); return CMD_BEGIN_PAREN; }
@@ -90,6 +91,8 @@ const_bstring get_current_state_name();
 
 <IN_CMD>[ \t]*&[ \t]*                                   { C_OCOPY(token); return CMD_AMPERSAND; }
 <IN_CMD>[ \t]*\|[ \t]*                                  { C_OCOPY(token); return CMD_PIPE; }
+<IN_CMD>[ \t]*\<[ \t]*                                  { C_OCOPY(token); return CMD_REDIRECT_IN; }
+<IN_CMD>[ \t]*\>[ \t]*                                  { C_OCOPY(token); return CMD_REDIRECT_OUT; }
 <IN_CMD>[ \t]+:[ \t]*                                   { if (can_perform_colon_jump) { OCOPY(token); lex_push(IN_EXPR_COLON); return CMD_COLON; } else { REJECT; } }
 <IN_CMD>[ \t]*:[ \t]+                                   { if (can_perform_colon_jump) { OCOPY(token); lex_push(IN_EXPR_COLON); return CMD_COLON; } else { REJECT; } }
 <IN_CMD>:                                               { if (can_perform_colon_jump) { OCOPY(token); lex_push(IN_EXPR_COLON); return CMD_COLON; } else { C_OCOPY(string); yylval.string.value = bfromcstr(":"); return CMD_FRAGMENT; } }
@@ -111,7 +114,9 @@ const_bstring get_current_state_name();
 <IN_PHP><<EOF>>                                         { return UNTERMINATED_LEXING_BLOCK; }
 
 <IN_EXPR>[a-zA-Z_\.\~]                                  { C_OCOPY(string); yylval.string.value = bfromcstr(yytext); return EXPR_FRAGMENT; }
-<IN_EXPR>[a-zA-Z\/_\.\-\~\^\=\*\+\%][a-zA-Z\/_0-9\.\-\~\^\:\=\*\+\%]*[a-zA-Z\/_0-9\.\~\^\:\=\*\+\%]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return EXPR_FRAGMENT; }
+<IN_EXPR>[a-zA-Z\/_\.\-\~\^\*\+\%][a-zA-Z\/_0-9\.\-\~\^\:\=\*\+\%]*[a-zA-Z\/_0-9\.\~\^\:\=\*\+\%]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return EXPR_FRAGMENT; }
+<IN_EXPR>[a-zA-Z\/_\.\-\~\^\=\*\+\%][a-zA-Z\/_0-9\.\-\~\^\:\=\*\+\%]*[a-zA-Z\/_0-9\.\~\^\:\*\+\%]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return EXPR_FRAGMENT; }
+<IN_EXPR>[a-zA-Z\/_\.\-\~\^\=\*\+\%][a-zA-Z\/_0-9\.\-\~\^\:\=\*\+\%]+[a-zA-Z\/_0-9\.\~\^\:\=\*\+\%]  { OCOPY(string); yylval.string.value = bfromcstr(yytext); return EXPR_FRAGMENT; }
 
 <IN_EXPR>\$\(                                           { C_OCOPY(token); lex_push(IN_CMD); return EXPR_BEGIN_COMMAND; }
 <IN_EXPR>\$                                             { C_OCOPY(token); return EXPR_DOLLAR; }
@@ -127,7 +132,6 @@ const_bstring get_current_state_name();
 
 <IN_EXPR>&                                              { C_OCOPY(token); return EXPR_AMPERSAND; }
 <IN_EXPR>\|                                             { C_OCOPY(token); return EXPR_PIPE; }
-<IN_EXPR>\=                                             { C_OCOPY(token); return EXPR_EQUALS; }
 <IN_EXPR>\,                                             { C_OCOPY(token); return EXPR_COMMA; }
 <IN_EXPR>\;                                             { C_OCOPY(token); return EXPR_SEMICOLON; }
 <IN_EXPR>:                                              { C_OCOPY(token); return EXPR_COLON; }
@@ -136,6 +140,16 @@ const_bstring get_current_state_name();
 <IN_EXPR>\-                                             { C_OCOPY(token); return EXPR_MINUS; }
 <IN_EXPR>\*                                             { C_OCOPY(token); return EXPR_MULTIPLY; }
 <IN_EXPR>\/                                             { C_OCOPY(token); return EXPR_DIVIDE; }
+
+<IN_EXPR>\=\=                                           { C_OCOPY(token); return EXPR_EQUALS_COMPARE; }
+<IN_EXPR>\!\=                                           { C_OCOPY(token); return EXPR_NOT_EQUALS; }
+<IN_EXPR>\<\=                                           { C_OCOPY(token); return EXPR_LESS_THAN_EQUALS; }
+<IN_EXPR>\<                                             { C_OCOPY(token); return EXPR_LESS_THAN; }
+<IN_EXPR>\>\=                                           { C_OCOPY(token); return EXPR_GREATER_THAN_EQUALS; }
+<IN_EXPR>\>                                             { C_OCOPY(token); return EXPR_GREATER_THAN; }
+
+<IN_EXPR>\!                                             { C_OCOPY(token); return EXPR_NOT; }
+<IN_EXPR>\=                                             { C_OCOPY(token); return EXPR_EQUALS_ASSIGN; }
 
 <IN_EXPR>[ \t]+                                         /* ignore whitespace in expressions */
 <IN_EXPR>\\[ \t]*(\r\n|\r|\n)[ \t]*                     /* ignore continued newlines in expressions */

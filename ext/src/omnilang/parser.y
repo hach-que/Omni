@@ -49,19 +49,21 @@ ast_node* ast_root;
 %token <string> CMD_FRAGMENT CMD_MAP
 %token <number> CMD_NUMBER
 %token <token> CMD_DOLLAR CMD_AMPERSAND CMD_PIPE CMD_COLON
+%token <token> CMD_REDIRECT_IN CMD_REDIRECT_OUT
 %token <token> CMD_WHITESPACE CMD_TERMINATING_NEWLINE
 %token <token> CMD_BEGIN_COMMAND
 %token <token> CMD_BEGIN_PAREN
 %token <token> CMD_BEGIN_SQUARE
 %token <token> CMD_SEMICOLON
-%token <token> CMD_EQUALS
 
 // Tokens that appear only for expressions
 %token <string> PHP EXPR_FRAGMENT
 %token <number> EXPR_NUMBER
 %token <token> EXPR_DOLLAR EXPR_ACCESS EXPR_MAP
-%token <token> EXPR_AMPERSAND EXPR_PIPE EXPR_EQUALS EXPR_COMMA EXPR_SEMICOLON
+%token <token> EXPR_AMPERSAND EXPR_PIPE EXPR_EQUALS_ASSIGN EXPR_COMMA EXPR_SEMICOLON
 %token <token> EXPR_COLON EXPR_ADD EXPR_MINUS EXPR_MULTIPLY EXPR_DIVIDE
+%token <token> EXPR_EQUALS_COMPARE EXPR_NOT_EQUALS EXPR_LESS_THAN_EQUALS EXPR_LESS_THAN
+%token <token> EXPR_GREATER_THAN_EQUALS EXPR_GREATER_THAN EXPR_NOT
 %token <token> EXPR_BEGIN_COMMAND
 %token <token> EXPR_BEGIN_ARRAY
 %token <token> EXPR_BEGIN_PAREN
@@ -112,10 +114,14 @@ ast_node* ast_root;
 %nonassoc EXPR_AMPERSAND CMD_AMPERSAND
 %nonassoc CMD_WHITESPACE
 %nonassoc EXPR_COMMA
+%left EXPR_EQUALS_COMPARE EXPR_NOT_EQUALS
+%left EXPR_LESS_THAN EXPR_LESS_THAN_EQUALS EXPR_GREATER_THAN EXPR_GREATER_THAN_EQUALS
 %left EXPR_ADD EXPR_MINUS
 %left EXPR_MULTIPLY EXPR_DIVIDE
+%right EXPR_NOT
 %left EXPR_BEGIN_PAREN
 %left EXPR_ACCESS
+
 
 %start cmd_root
 
@@ -349,7 +355,7 @@ cmd_mapping:
 
 cmd_assignment:
   /* This rule changes to expression mode */
-  CMD_COLON EXPR_DOLLAR VARIABLE EXPR_EQUALS expr_fragments_or_function_declaration
+  CMD_COLON EXPR_DOLLAR VARIABLE EXPR_EQUALS_ASSIGN expr_fragments_or_function_declaration
   {
     ast_node* variable;
     variable = ast_node_create(&node_type_variable);
@@ -366,7 +372,7 @@ cmd_assignment:
     ORIGINAL_NODE_NODE_APPEND($$, $5);
   } |
   /* This rule changes to expression mode */
-  CMD_COLON expression EXPR_ACCESS expression EXPR_EQUALS expr_fragments_or_function_declaration
+  CMD_COLON expression EXPR_ACCESS expression EXPR_EQUALS_ASSIGN expr_fragments_or_function_declaration
   {
     VALUE_NODE($$) = ast_node_create(&node_type_access);
     ast_node_set_string(VALUE_NODE($$), bfromcstr("assign"));
@@ -382,7 +388,7 @@ cmd_assignment:
     ORIGINAL_NODE_NODE_APPEND($$, $6);
   } |
   /* This rule changes to expression mode */
-  CMD_COLON expression EXPR_ACCESS EXPR_BEGIN_SQUARE END_SQUARE EXPR_EQUALS expr_fragments_or_function_declaration
+  CMD_COLON expression EXPR_ACCESS EXPR_BEGIN_SQUARE END_SQUARE EXPR_EQUALS_ASSIGN expr_fragments_or_function_declaration
   {
     ast_node* fragment;
     fragment = ast_node_create(&node_type_fragment);
@@ -652,7 +658,7 @@ expr_key_values:
     
     ORIGINAL_NODE_APPEND($$, $1);
   } |
-  expr_key_name EXPR_EQUALS expr_fragment
+  expr_key_name EXPR_EQUALS_ASSIGN expr_fragment
   {
     ast_node* key_value;
     VALUE_NODE($$) = ast_node_create(&node_type_key_values);
@@ -665,7 +671,7 @@ expr_key_values:
     ORIGINAL_NODE_APPEND($$, $2);
     ORIGINAL_NODE_NODE_APPEND($$, $3);
   } |
-  expr_key_values EXPR_COMMA expr_key_name EXPR_EQUALS expr_fragment
+  expr_key_values EXPR_COMMA expr_key_name EXPR_EQUALS_ASSIGN expr_fragment
   {
     ast_node* key_value;
     key_value = ast_node_create(&node_type_key_value);
@@ -762,6 +768,14 @@ expression:
     ORIGINAL_NODE_NODE_APPEND($$, $3);
     ORIGINAL_NODE_APPEND($$, $4);
   } |
+  EXPR_NOT expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_not);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($2));
+    
+    ORIGINAL_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_NODE_APPEND($$, $2);
+  } |
   expression EXPR_DIVIDE expression
   {
     VALUE_NODE($$) = ast_node_create(&node_type_divide);
@@ -795,6 +809,66 @@ expression:
   expression EXPR_MINUS expression
   {
     VALUE_NODE($$) = ast_node_create(&node_type_minus);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_EQUALS_COMPARE expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_equals);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_NOT_EQUALS expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_not_equals);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_LESS_THAN_EQUALS expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_less_than_equals);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_LESS_THAN expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_less_than);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_GREATER_THAN_EQUALS expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_greater_than_equals);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  expression EXPR_GREATER_THAN expression
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_greater_than);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
     
