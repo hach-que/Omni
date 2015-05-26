@@ -117,6 +117,11 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   
   public function setChainRoot($root) {
     $this->chainRoot = $root;
+    return $this;
+  }
+  
+  public function getChainRoot() {
+    return $this->chainRoot;
   }
   
   public function ignoreProcessForCompletion(ProcessInterface $process) {

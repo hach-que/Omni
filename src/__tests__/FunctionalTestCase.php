@@ -43,6 +43,9 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testAssignment2() {
+    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    return;
+    
     $this->runFunctionalTest('assignment-2');
   }
   
@@ -67,6 +70,9 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testExecFuture1() {
+    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    return;
+    
     $this->runFunctionalTest('exec-future-1');
   }
   
@@ -79,6 +85,9 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testFileAccess1() {
+    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    return;
+    
     $this->runFunctionalTest('file-access-1');
   }
   
@@ -111,6 +120,9 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testIterDoesNotDeadlock() {
+    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    return;
+    
     $this->runFunctionalTest('iter-does-not-deadlock');
   }
   
@@ -131,6 +143,9 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testNewBuiltin1() {
+    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    return;
+    
     $this->runFunctionalTest('new-builtin-1');
   }
   
@@ -165,11 +180,11 @@ final class FunctionalTestCase extends PhutilTestCase {
     $expect = file_get_contents(
       phutil_get_library_root('omni').'/../test/'.$name.'/expected');
   
-    list($err, $stdout, $stderr) = id(new ExecFuture('%C ./run.sh %Ls', $omni, $args))
+    list($err, $stdout, $stderr) = id(new ExecFuture('%C %s %Ls', $omni, $cwd.'/run.sh', $args))
       ->setCWD($cwd)
       ->resolve();
     $this->assertEqual(0, $err);
-    $this->assertEqual($stdout, $expect);
+    $this->assertEqual($expect, $stdout);
   }
   
 }

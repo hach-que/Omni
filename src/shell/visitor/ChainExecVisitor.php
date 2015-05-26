@@ -22,13 +22,15 @@ final class ChainExecVisitor extends Visitor {
     if ($data['data'] === 'expression') {
       omni_trace("check for in-process pipes");
       
-      foreach ($job->getStages() as $stage) {
-        if ($stage instanceof Process && $stage->useInProcessPipes($shell)) {
-          if (count($job->getStages()) > 1) {
-            throw new Exception($stage->getProcessDescription().' can not be piped');
+      foreach ($job->getChainRoot()->getPipelinesRecursively() as $pipeline) {
+        foreach ($pipeline->getStages() as $stage) {
+          if ($stage instanceof Process && $stage->useInProcessPipes($shell)) {
+            if (count($pipeline->getStages()) > 1) {
+              throw new Exception($stage->getProcessDescription().' can not be piped');
+            }
+            
+            $requires_inprocess_pipes = true;
           }
-          
-          $requires_inprocess_pipes = true;
         }
       }
     }
