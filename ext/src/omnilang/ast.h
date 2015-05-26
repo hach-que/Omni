@@ -55,10 +55,15 @@ extern struct tagbstring node_type_less_than_equals;
 extern struct tagbstring node_type_less_than;
 extern struct tagbstring node_type_greater_than_equals;
 extern struct tagbstring node_type_greater_than;
+extern struct tagbstring node_type_chain_exec;
+extern struct tagbstring node_type_chain;
 
-extern struct tagbstring pipeline_type_foreground;
-extern struct tagbstring pipeline_type_background;
-extern struct tagbstring pipeline_type_expression;
+extern struct tagbstring chain_exec_type_foreground;
+extern struct tagbstring chain_exec_type_background;
+extern struct tagbstring chain_exec_type_expression;
+
+extern struct tagbstring chain_type_or;
+extern struct tagbstring chain_type_and;
 
 typedef struct 
 {

@@ -120,11 +120,18 @@ $result = $args->parsePartial(
       'name'     => 'no-omnirc',
       'help'     => 'Do not execute ~/.omnirc at startup.',
     ),
+    array(
+      'name'     => 'trace-file',
+      'help'     => 'Only output tracing information to file.',
+    ),
 ));
 
 if ($args->getArg('trace')) {
   // Enable tracing for both PHP and native extensions.
-  OmniTrace::enableTracing();
+  OmniTrace::enableTracing(true);
+} else if ($args->getArg('trace-file')) {
+  // Enable tracing for both PHP and native extensions.
+  OmniTrace::enableTracing(false);
 }
 
 $command = $args->getArg('command');

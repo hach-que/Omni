@@ -4,25 +4,29 @@ final class OmniTrace extends Phobject {
 
   private static $isTracing = false;
   private static $traceDirectory = null;
+  private static $showOnStderr = false;
   
-  public static function enableTracing() {
+  public static function enableTracing($show_on_stderr = true) {
     self::$isTracing = true;
     self::$traceDirectory = getcwd();
+    self::$showOnStderr = $show_on_stderr;
     
-    if (function_exists("editline_enable_tracing")) {
-      editline_enable_tracing();
-    }
-    if (function_exists("fd_enable_tracing")) {
-      fd_enable_tracing();
-    }
-    if (function_exists("omni_enable_tracing")) {
-      omni_enable_tracing();
-    }
-    if (function_exists("omnilang_enable_tracing")) {
-      omnilang_enable_tracing();
-    }
-    if (function_exists("tc_enable_tracing")) {
-      tc_enable_tracing();
+    if ($show_on_stderr) {
+      if (function_exists("editline_enable_tracing")) {
+        editline_enable_tracing();
+      }
+      if (function_exists("fd_enable_tracing")) {
+        fd_enable_tracing();
+      }
+      if (function_exists("omni_enable_tracing")) {
+        omni_enable_tracing();
+      }
+      if (function_exists("omnilang_enable_tracing")) {
+        omnilang_enable_tracing();
+      }
+      if (function_exists("tc_enable_tracing")) {
+        tc_enable_tracing();
+      }
     }
   }
   
@@ -32,6 +36,10 @@ final class OmniTrace extends Phobject {
   
   public static function getTraceDirectory() {
     return self::$traceDirectory;
+  }
+  
+  public static function isShowingOnStderr() {
+    return self::$showOnStderr;
   }
 
 }
@@ -55,8 +63,10 @@ function omni_trace($message) {
       fclose($file);
     }
 
-    static $stderr;
-    $stderr = fopen('php://stderr', 'w+');
-    fwrite($stderr, $pid." ".$timestamp.": ".$message."\n");
+    if (OmniTrace::isShowingOnStderr()) {
+      static $stderr;
+      $stderr = fopen('php://stderr', 'w+');
+      fwrite($stderr, $pid." ".$timestamp.": ".$message."\n");
+    }
   }
 }

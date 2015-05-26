@@ -48,7 +48,7 @@ ast_node* ast_root;
 // Tokens that appear only for commands
 %token <string> CMD_FRAGMENT CMD_MAP
 %token <number> CMD_NUMBER
-%token <token> CMD_DOLLAR CMD_AMPERSAND CMD_PIPE CMD_COLON
+%token <token> CMD_DOLLAR CMD_AMPERSAND CMD_PIPE CMD_COLON CMD_DOUBLE_PIPE CMD_DOUBLE_AMPERSAND
 %token <token> CMD_REDIRECT_IN CMD_REDIRECT_OUT
 %token <token> CMD_WHITESPACE CMD_TERMINATING_NEWLINE
 %token <token> CMD_BEGIN_COMMAND
@@ -79,6 +79,8 @@ ast_node* ast_root;
 %type <node> cmd_root
 %type <node> cmd_statements
 %type <node> cmd_statement
+%type <node> cmd_chain_exec
+%type <node> cmd_chain
 %type <node> cmd_pipeline
 %type <node> cmd_fragment
 %type <node> cmd_mapping
@@ -111,6 +113,8 @@ ast_node* ast_root;
 
 // Precedence rules
 %nonassoc EXPR_PIPE CMD_PIPE
+%left CMD_DOUBLE_PIPE
+%left CMD_DOUBLE_AMPERSAND
 %nonassoc EXPR_AMPERSAND CMD_AMPERSAND
 %nonassoc CMD_WHITESPACE
 %nonassoc EXPR_COMMA
@@ -169,17 +173,17 @@ cmd_optional_whitespace:
   CMD_TERMINATING_NEWLINE { $$.original = bfromcstr(""); ORIGINAL_APPEND($$, $1); } ;
   
 cmd_statement:
-  cmd_pipeline CMD_AMPERSAND
+  cmd_chain_exec CMD_AMPERSAND
   {
     VALUE_NODE($$) = VALUE_NODE($1);
-    ast_node_set_string(VALUE_NODE($$), bstrcpy(&pipeline_type_background));
+    ast_node_set_string(VALUE_NODE($$), bstrcpy(&chain_exec_type_background));
     
     ORIGINAL_NODE_APPEND($$, $2);
   } |
-  cmd_pipeline
+  cmd_chain_exec
   {
     VALUE_NODE($$) = VALUE_NODE($1);
-    ast_node_set_string(VALUE_NODE($$), bstrcpy(&pipeline_type_foreground));
+    ast_node_set_string(VALUE_NODE($$), bstrcpy(&chain_exec_type_foreground));
   } |
   cmd_assignment
   {
@@ -409,6 +413,46 @@ cmd_assignment:
     ORIGINAL_NODE_NODE_APPEND($$, $7);
   } ;
   
+cmd_chain_exec:
+  cmd_chain
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_chain_exec);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+  } ;
+  
+cmd_chain:
+  cmd_pipeline
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_chain);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+  } |
+  cmd_chain CMD_DOUBLE_PIPE cmd_chain
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_chain);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    ast_node_set_string(VALUE_NODE($$), bstrcpy(&chain_type_or));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } |
+  cmd_chain CMD_DOUBLE_AMPERSAND cmd_chain
+  {
+    VALUE_NODE($$) = ast_node_create(&node_type_chain);
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($1));
+    ast_node_append_child(VALUE_NODE($$), VALUE_NODE($3));
+    ast_node_set_string(VALUE_NODE($$), bstrcpy(&chain_type_and));
+    
+    ORIGINAL_NODE_NODE_APPEND($$, $1);
+    ORIGINAL_NODE_APPEND($$, $2);
+    ORIGINAL_NODE_NODE_APPEND($$, $3);
+  } ;
+  
 cmd_pipeline:
   cmd_instruction
   {
@@ -547,7 +591,7 @@ cmd_fragment:
     ORIGINAL_NODE_APPEND($$, $1);
     ORIGINAL_NODE_APPEND($$, $2);
   } |
-  CMD_BEGIN_COMMAND cmd_pipeline END_PAREN
+  CMD_BEGIN_COMMAND cmd_chain_exec END_PAREN
   {
     ast_node* empty_options;
     empty_options = ast_node_create(&node_type_key_values);
@@ -555,7 +599,7 @@ cmd_fragment:
     VALUE_NODE($$) = ast_node_create(&node_type_expression);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($2));
     
-    ast_node_set_string(VALUE_NODE($2), bstrcpy(&pipeline_type_expression));
+    ast_node_set_string(VALUE_NODE($2), bstrcpy(&chain_exec_type_expression));
     ast_node_append_child(VALUE_NODE($2), empty_options);
     
     ORIGINAL_NODE_APPEND($$, $1);
@@ -563,12 +607,12 @@ cmd_fragment:
     ORIGINAL_NODE_APPEND($$, $3);
   } |
   /* This rule changes to expression mode and back again */
-  CMD_DOLLAR CMD_BEGIN_SQUARE expr_key_values EXPR_END_SQUARE_BEGIN_COMMAND cmd_pipeline END_PAREN
+  CMD_DOLLAR CMD_BEGIN_SQUARE expr_key_values EXPR_END_SQUARE_BEGIN_COMMAND cmd_chain_exec END_PAREN
   {
     VALUE_NODE($$) = ast_node_create(&node_type_expression);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($5));
     
-    ast_node_set_string(VALUE_NODE($5), bstrcpy(&pipeline_type_expression));
+    ast_node_set_string(VALUE_NODE($5), bstrcpy(&chain_exec_type_expression));
     ast_node_append_child(VALUE_NODE($5), VALUE_NODE($3));
     
     ORIGINAL_NODE_APPEND($$, $1);
@@ -975,7 +1019,7 @@ expr_fragment:
     ORIGINAL_NODE_APPEND($$, $1);
     ORIGINAL_NODE_APPEND($$, $2);
   } |
-  EXPR_BEGIN_COMMAND cmd_pipeline END_PAREN
+  EXPR_BEGIN_COMMAND cmd_chain_exec END_PAREN
   {
     ast_node* empty_options;
     empty_options = ast_node_create(&node_type_key_values);
@@ -983,19 +1027,19 @@ expr_fragment:
     VALUE_NODE($$) = ast_node_create(&node_type_expression);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($2));
     
-    ast_node_set_string(VALUE_NODE($2), bstrcpy(&pipeline_type_expression));
+    ast_node_set_string(VALUE_NODE($2), bstrcpy(&chain_exec_type_expression));
     ast_node_append_child(VALUE_NODE($2), empty_options);
     
     ORIGINAL_NODE_APPEND($$, $1);
     ORIGINAL_NODE_NODE_APPEND($$, $2);
     ORIGINAL_NODE_APPEND($$, $3);
   } |
-  EXPR_DOLLAR EXPR_BEGIN_SQUARE expr_key_values EXPR_END_SQUARE_BEGIN_COMMAND cmd_pipeline END_PAREN
+  EXPR_DOLLAR EXPR_BEGIN_SQUARE expr_key_values EXPR_END_SQUARE_BEGIN_COMMAND cmd_chain_exec END_PAREN
   {
     VALUE_NODE($$) = ast_node_create(&node_type_expression);
     ast_node_append_child(VALUE_NODE($$), VALUE_NODE($5));
     
-    ast_node_set_string(VALUE_NODE($5), bstrcpy(&pipeline_type_expression));
+    ast_node_set_string(VALUE_NODE($5), bstrcpy(&chain_exec_type_expression));
     ast_node_append_child(VALUE_NODE($5), VALUE_NODE($3));
     
     ORIGINAL_NODE_APPEND($$, $1);

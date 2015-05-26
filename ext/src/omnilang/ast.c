@@ -48,10 +48,15 @@ struct tagbstring node_type_less_than_equals = bsStatic("less_than_equals");
 struct tagbstring node_type_less_than = bsStatic("less_than");
 struct tagbstring node_type_greater_than_equals = bsStatic("greater_than_equals");
 struct tagbstring node_type_greater_than = bsStatic("greater_than");
+struct tagbstring node_type_chain_exec = bsStatic("chain_exec");
+struct tagbstring node_type_chain = bsStatic("chain");
 
-struct tagbstring pipeline_type_foreground = bsStatic("foreground");
-struct tagbstring pipeline_type_background = bsStatic("background");
-struct tagbstring pipeline_type_expression = bsStatic("expression");
+struct tagbstring chain_exec_type_foreground = bsStatic("foreground");
+struct tagbstring chain_exec_type_background = bsStatic("background");
+struct tagbstring chain_exec_type_expression = bsStatic("expression");
+
+struct tagbstring chain_type_or = bsStatic("or");
+struct tagbstring chain_type_and = bsStatic("and");
 
 ast_node* ast_node_create(const_bstring node_type) {
   ast_node* node;

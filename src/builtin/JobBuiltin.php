@@ -16,6 +16,7 @@ final class JobBuiltin extends Builtin {
     
     return array(
       'stdout' => $stdout->createInboundEndpoint(null, "job stdout"),
+      'stderr' => $stderr->createInboundEndpoint(null, "job stderr"),
     );
   }
   
@@ -41,6 +42,7 @@ final class JobBuiltin extends Builtin {
     array $prepare_data) {
     
     $stdout = idx($prepare_data, 'stdout');
+    $stderr = idx($prepare_data, 'stderr');
     
     $parser = new PhutilArgumentParser($arguments);
     $parser->parseFull($this->getArguments($shell, $job, $prepare_data));
@@ -48,6 +50,12 @@ final class JobBuiltin extends Builtin {
     if ($parser->getArg('job')) {
       // Operate on a specific job.
       $job = $shell->findJob($parser->getArg('job'));
+      if ($job === null) {
+        $stderr->write(new Exception('No such job!'));
+        $stdout->closeWrite();
+        $stderr->closeWrite();
+        return;
+      }
       
       foreach ($job->getProcesses() as $process) {
         $stdout->write(array(
@@ -65,7 +73,6 @@ final class JobBuiltin extends Builtin {
       foreach ($shell->getJobs() as $job) {
         $stdout->write(array(
           'pgid' => $job->getProcessGroupIDOrNull(),
-          'stages' => count($job->getStages()),
           'processes' => count($job->getProcesses()),
           'foreground?' => $job->isForeground(),
           'stopped?' => $job->isStopped(),
@@ -76,6 +83,7 @@ final class JobBuiltin extends Builtin {
     }
     
     $stdout->closeWrite();
+    $stderr->closeWrite();
   }
 
 }

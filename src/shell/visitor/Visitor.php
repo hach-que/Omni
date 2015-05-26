@@ -46,6 +46,8 @@ abstract class Visitor {
       'array_def' => 'ArrayDefVisitor',
       'array_element' => 'ArrayElementVisitor',
       'assignment' => 'AssignmentVisitor',
+      'chain_exec' => 'ChainExecVisitor',
+      'chain' => 'ChainVisitor',
       'command' => 'CommandVisitor',
       'divide' => 'DivideVisitor',
       'double_quoted' => 'DoubleQuotedVisitor',

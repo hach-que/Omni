@@ -23,6 +23,9 @@ final class BuiltinLaunchable
   public function launch(Shell $shell, Job $job, array $prepare_data) {
     try {
       $this->exitCode = $this->builtin->run($shell, $job, $this->arguments, $prepare_data);
+      if ($this->exitCode === null) {
+        $this->exitCode = 0;
+      }
     } catch (Exception $ex) {
       $this->exitCode = 128 + SIGILL;
       

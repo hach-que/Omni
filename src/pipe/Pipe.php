@@ -20,6 +20,7 @@ class Pipe extends Phobject implements PipeInterface {
   private $objectsPendingConnectionOfOutboundEndpoints = array();
   private $shell = null;
   private $job = null;
+  private $closed = false;
   
   /**
    * When pipes are being used as part of the shell, we need to
@@ -96,6 +97,10 @@ class Pipe extends Phobject implements PipeInterface {
   
   public function isRunning() {
     return $this->controllerPid !== null;
+  }
+  
+  public function isClosed() {
+    return $this->closed;
   }
   
   public function isConnectedToTerminal() {
@@ -591,35 +596,45 @@ class Pipe extends Phobject implements PipeInterface {
     if ($pid === 0) {
       omni_trace("i am the child pipe controller");
       
-      $this->controllerPid = posix_getpid();
-      
-      if ($this->shell !== null && $this->job !== null) {
-        $this->shell->prepareForkedProcess($this->job, true);
+      try {
+        $this->controllerPid = posix_getpid();
+        
+        if ($this->shell !== null && $this->job !== null) {
+          $this->shell->prepareForkedProcess($this->job, true);
+        }
+        
+        omni_trace("setting SIGTTIN to SIG_IGN");
+        
+        pcntl_signal(SIGTTIN, SIG_IGN);
+        
+        omni_trace("pipe ".posix_getpid());
+        
+        FileDescriptorManager::close(
+          $this->controllerControlPipe['write']);
+        $this->controllerDataToControllerPipe->closeWrite();
+        $this->controllerDataFromControllerPipe->closeRead();
+        
+        omni_trace("updating pipe controller forever");
+        
+        // This is the child process.
+        while ($this->update()) {
+          // Repeat while update returns true.
+        }
+        
+        omni_trace("all inputs exhausted");
+        
+        omni_trace("pipe controller is now exiting");
+        
+        omni_exit(0);
+      } catch (Exception $ex) {
+        try {
+          $fmt = new UserFriendlyFormatter();
+          omni_trace($fmt->get($ex));
+        } catch (Exception $exx) {
+          omni_trace((string)$exx);
+        }
+        omni_exit(1);
       }
-      
-      omni_trace("setting SIGTTIN to SIG_IGN");
-      
-      pcntl_signal(SIGTTIN, SIG_IGN);
-      
-      omni_trace("pipe ".posix_getpid());
-      
-      FileDescriptorManager::close(
-        $this->controllerControlPipe['write']);
-      $this->controllerDataToControllerPipe->closeWrite();
-      $this->controllerDataFromControllerPipe->closeRead();
-      
-      omni_trace("updating pipe controller forever");
-      
-      // This is the child process.
-      while ($this->update()) {
-        // Repeat while update returns true.
-      }
-      
-      omni_trace("all inputs exhausted");
-      
-      omni_trace("pipe controller is now exiting");
-      
-      omni_exit(0);
     } else if ($pid > 0) {
       omni_trace("i am the parent process, with child pid $pid");
       
@@ -656,6 +671,7 @@ class Pipe extends Phobject implements PipeInterface {
    * file descriptors to be freed in the parent process).
    */
   public function close() {
+    $this->closed = true;
     FileDescriptorManager::close(
       $this->controllerControlPipe['write']);
     $this->controllerDataToControllerPipe->closeWrite();
@@ -850,14 +866,19 @@ class Pipe extends Phobject implements PipeInterface {
     if (count($this->outboundEndpoints) === 0) {
       // Place the objects in a buffer for outbound endpoints, to
       // be dispatched when an outbound endpoint is connected.
+      omni_trace("we have nowhere to send objects");
       foreach ($temporary as $object) {
         $this->objectsPendingConnectionOfOutboundEndpoints[] = $object;
       }
       return true;
     }
     
+    omni_trace("dispatching objects...");
+    
     switch ($this->distributionMethod) {
       case self::DIST_METHOD_SPLIT:
+        omni_trace("distributing via method split");
+        
         $total_objects = count($temporary);
         $total_writers = count($this->outboundEndpoints);
         $per_writer = (int)floor($total_objects / $total_writers);
@@ -878,10 +899,17 @@ class Pipe extends Phobject implements PipeInterface {
         }
         break;
       case self::DIST_METHOD_ROUND_ROBIN:
+        omni_trace("distributing via round robin");
+        
         $compacted_endpoints = array_values($this->outboundEndpoints);
         $total_writers = count($compacted_endpoints);
+        
+        omni_trace("there are ".$total_writers." to use");
+        
         foreach ($temporary as $obj) {
+          omni_trace("writing one object to endpoint at index ".($this->roundRobinCounter + 1));
           $compacted_endpoints[$this->roundRobinCounter++]->write($obj);
+          omni_trace("wrote one object to endpoint at index ".$this->roundRobinCounter);
           $this->roundRobinCounter = $this->roundRobinCounter % $total_writers;
         }
         break;

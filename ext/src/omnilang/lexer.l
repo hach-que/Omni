@@ -89,6 +89,8 @@ const_bstring get_current_state_name();
 <IN_CMD>\[                                              { C_OCOPY(token); lex_push(IN_EXPR); return CMD_BEGIN_SQUARE; }
 <IN_CMD>\$                                              { C_OCOPY(token); return CMD_DOLLAR; }
 
+<IN_CMD>[ \t]*&&[ \t]*                                  { C_OCOPY(token); return CMD_DOUBLE_AMPERSAND; }
+<IN_CMD>[ \t]*\|\|[ \t]*                                { C_OCOPY(token); return CMD_DOUBLE_PIPE; }
 <IN_CMD>[ \t]*&[ \t]*                                   { C_OCOPY(token); return CMD_AMPERSAND; }
 <IN_CMD>[ \t]*\|[ \t]*                                  { C_OCOPY(token); return CMD_PIPE; }
 <IN_CMD>[ \t]*\<[ \t]*                                  { C_OCOPY(token); return CMD_REDIRECT_IN; }
