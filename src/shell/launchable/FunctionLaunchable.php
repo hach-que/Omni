@@ -13,10 +13,21 @@ final class FunctionLaunchable
   }
   
   public function prepare(Shell $shell, Job $job, PipeInterface $stdin, PipeInterface $stdout, PipeInterface $stderr) {
+    $stdin_endpoint = $stdin->createOutboundEndpoint(null, "function stdin");
+    $stdout_endpoint = $stdout->createInboundEndpoint(null, "function stdout");
+    $stderr_endpoint = $stderr->createInboundEndpoint(null, "function stderr");
+  
     return array(
-      'stdin' => $stdin->createOutboundEndpoint(null, "function stdin"),
-      'stdout' => $stdout->createInboundEndpoint(null, "function stdout"),
-      'stderr' => $stderr->createInboundEndpoint(null, "function stderr"),
+      'stdin' => $stdin_endpoint,
+      'stdout' => $stdout_endpoint,
+      'stderr' => $stderr_endpoint,
+      'close_read_on_fork' => array(
+        $stdin_endpoint,
+      ),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+        $stderr_endpoint,
+      ),
     );
   }
   

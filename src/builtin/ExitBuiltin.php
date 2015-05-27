@@ -14,7 +14,10 @@ final class ExitBuiltin extends Builtin {
     PipeInterface $stdout,
     PipeInterface $stderr) {
     
-    return array();
+    return array(
+      'close_read_on_fork' => array(),
+      'close_write_on_fork' => array(),
+    );
   }
     
   public function getArguments(

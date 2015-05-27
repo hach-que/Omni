@@ -32,6 +32,13 @@ final class NativeLaunchable
       'stdin_pipe' => $stdin,
       'stdout_pipe' => $stdout,
       'stderr_pipe' => $stderr,
+      'close_read_on_fork' => array(
+        $stdin_endpoint,
+      ),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+        $stderr_endpoint,
+      ),
     );
   }
   

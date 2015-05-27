@@ -44,10 +44,6 @@ final class Pipeline
     $pipe_next = null;
     
     omni_trace("preparing pipeline execution: ".$this->getCommand());
-    
-    $job->registerTemporaryPipe($stdin);
-    $job->registerTemporaryPipe($stdout);
-    $job->registerTemporaryPipe($stderr);
   
     $stage_data = array();
     $stage_count = count($this->stages);
@@ -81,6 +77,20 @@ final class Pipeline
       $pipe_prev = $pipe_next;
     }
     
+    $close_read_on_fork = array();
+    $close_write_on_fork = array();
+    
+    foreach ($stage_data as $stage) {
+      $close_read_on_fork[] = idx($stage, 'close_read_on_fork', array());
+      $close_write_on_fork[] = idx($stage, 'close_write_on_fork', array());
+    }
+    
+    $close_read_on_fork = array_mergev($close_read_on_fork);
+    $close_write_on_fork = array_mergev($close_write_on_fork);
+    
+    omni_trace("pipeline: there are ".count($close_read_on_fork)." endpoints to closeRead on after fork");
+    omni_trace("pipeline: there are ".count($close_write_on_fork)." endpoints to closeWrite on after fork");
+    
     return array(
       'stdin' => $stdin,
       'stdout' => $stdout,
@@ -89,6 +99,8 @@ final class Pipeline
       'stage_data' => $stage_data,
       'pipe_prev' => $pipe_prev,
       'pipe_next' => $pipe_next,
+      'close_read_on_fork' => $close_read_on_fork,
+      'close_write_on_fork' => $close_write_on_fork,
     );
   }  
     
@@ -108,6 +120,10 @@ final class Pipeline
     omni_trace("starting pipeline execution: ".$this->getCommand());
     
     omni_trace("getting ready to launch pipes");
+    
+    if ($stdout_is_captured) {
+      omni_trace("standard output is captured!");
+    }
     
     omni_trace("i am PID ".posix_getpid());
     
@@ -129,7 +145,7 @@ final class Pipeline
         
         if ($pipe === $stdout && $stdout_is_captured) {
           omni_trace("marking standard output process as ignored for completion");
-          $this->ignoreProcessForCompletion($process);
+          $job->ignoreProcessForCompletion($process);
         }
       }
     }

@@ -27,6 +27,13 @@ final class OmniAppLaunchable
       'stdin' => $stdin_endpoint,
       'stdout' => $stdout_endpoint,
       'stderr' => $stderr_endpoint,
+      'close_read_on_fork' => array(
+        $stdin_endpoint,
+      ),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+        $stderr_endpoint,
+      ),
     );
   }
   

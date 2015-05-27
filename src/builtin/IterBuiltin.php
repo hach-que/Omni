@@ -14,8 +14,14 @@ final class IterBuiltin extends Builtin {
     PipeInterface $stdout,
     PipeInterface $stderr) {
     
+    $stdout_endpoint = $stdout->createInboundEndpoint(null, "iter builtin stdout");
+    
     return array(
-      'stdout' => $stdout->createInboundEndpoint(null, "iter builtin stdout"),
+      'stdout' => $stdout_endpoint,
+      'close_read_on_fork' => array(),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+      ),
     );
   }
   

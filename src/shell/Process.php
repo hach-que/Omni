@@ -140,6 +140,8 @@ final class Process
     return array(
       'target' => $target,
       'data' => $data,
+      'close_read_on_fork' => idx($data, 'close_read_on_fork'),
+      'close_write_on_fork' => idx($data, 'close_write_on_fork'),
     );
   }
   

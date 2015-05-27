@@ -22,8 +22,14 @@ final class ListDirectoryBuiltin extends Builtin {
       $type = null;
     }
     
+    $stdout_endpoint = $stdout->createInboundEndpoint($type, "ls stdout");
+    
     return array(
-      'stdout' => $stdout->createInboundEndpoint($type, "ls stdout"),
+      'stdout' => $stdout_endpoint,
+      'close_read_on_fork' => array(),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+      ),
     );
   }
   

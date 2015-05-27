@@ -14,9 +14,15 @@ final class ChangeDirectoryBuiltin extends Builtin {
     PipeInterface $stdout,
     PipeInterface $stderr) {
     
+    $stdout_endpoint = $stdout->createInboundEndpoint(null, "cd stdout");
+    
     return array(
-      'stdout' => $stdout->createInboundEndpoint(null, "cd stdout"),
+      'stdout' => $stdout_endpoint,
       'output_new_dir' => !$stdout->isConnectedToTerminal(),
+      'close_read_on_fork' => array(),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+      ),
     );
   }
   

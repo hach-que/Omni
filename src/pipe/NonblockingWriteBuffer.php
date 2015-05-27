@@ -56,7 +56,9 @@ final class NonblockingWriteBuffer extends Phobject {
     } catch (NativePipeNonblockingWriteNotReadyException $ex) {
       $this->buffer = $ex->getBufferRemaining();
       $current = strlen($this->buffer);
-      omni_trace("buffer not entirely written; $current bytes now in buffer");
+      omni_trace(
+        "buffer not entirely written; $current bytes now in buffer: ".
+        PhutilErrorHandler::formatStacktrace(debug_backtrace()));
     }
     omni_trace("change blocking mode to blocking");
     FileDescriptorManager::setBlocking($this->fd, true);

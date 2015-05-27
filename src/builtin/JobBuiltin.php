@@ -14,9 +14,17 @@ final class JobBuiltin extends Builtin {
     PipeInterface $stdout,
     PipeInterface $stderr) {
     
+    $stdout_endpoint = $stdout->createInboundEndpoint(null, "job stdout");
+    $stderr_endpoint = $stderr->createInboundEndpoint(null, "job stderr");
+    
     return array(
-      'stdout' => $stdout->createInboundEndpoint(null, "job stdout"),
-      'stderr' => $stderr->createInboundEndpoint(null, "job stderr"),
+      'stdout' => $stdout_endpoint,
+      'stderr' => $stderr_endpoint,
+      'close_read_on_fork' => array(),
+      'close_write_on_fork' => array(
+        $stdout_endpoint,
+        $stderr_endpoint,
+      ),
     );
   }
   

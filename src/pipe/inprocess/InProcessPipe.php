@@ -40,5 +40,9 @@ final class InProcessPipe extends Phobject implements PipeInterface {
   
   public function close() {
   }
+  
+  public function isClosed() {
+    return false;
+  }
 
 }

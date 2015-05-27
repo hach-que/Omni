@@ -55,6 +55,11 @@ final class Chain
     PipeInterface $stderr,
     $stdout_is_captured = false) {
         
+    omni_trace("preparing chain node for '".$this->getCommand()."'");
+    
+    omni_trace("left chain node is '".$this->left->getCommand()."'");
+    omni_trace("right chain node is '".$this->right->getCommand()."'");
+    
     $left_job = new Job();
     $left_job->setCommand($this->left->getCommand());
     $left_data = $this->left->prepare(
@@ -78,6 +83,21 @@ final class Chain
     omni_trace("after prepare, left job hash is ".spl_object_hash($left_job));
     omni_trace("after prepare, right job hash is ".spl_object_hash($right_job));
       
+    $close_read_on_fork = array(
+      idx($left_data, 'close_read_on_fork', array()),
+      idx($right_data, 'close_read_on_fork', array()),
+    );
+    $close_write_on_fork = array(
+      idx($left_data, 'close_write_on_fork', array()),
+      idx($right_data, 'close_write_on_fork', array()),
+    );
+    
+    $close_read_on_fork = array_mergev($close_read_on_fork);
+    $close_write_on_fork = array_mergev($close_write_on_fork);
+    
+    omni_trace("chain: there are ".count($close_read_on_fork)." endpoints to closeRead on after fork");
+    omni_trace("chain: there are ".count($close_write_on_fork)." endpoints to closeWrite on after fork");
+      
     return array(
       'stdin' => $stdin,
       'stdout' => $stdout,
@@ -87,6 +107,8 @@ final class Chain
       'left_data' => $left_data,
       'right_job' => $right_job,
       'right_data' => $right_data,
+      'close_read_on_fork' => $close_read_on_fork,
+      'close_write_on_fork' => $close_write_on_fork,
     );
   }
   
@@ -103,8 +125,10 @@ final class Chain
     $left_data = idx($prepare_data, 'left_data');
     $right_job = idx($prepare_data, 'right_job');
     $right_data = idx($prepare_data, 'right_data');
+    $close_read_on_fork = idx($prepare_data, 'close_read_on_fork');
+    $close_write_on_fork = idx($prepare_data, 'close_write_on_fork');
     
-    omni_trace("encountered chain node; fork is required to proceed");
+    omni_trace("encountered chain node for '".$this->getCommand()."'; fork is required to proceed");
     
     omni_trace("during execute, left job hash is ".spl_object_hash($left_job));
     omni_trace("during execute, right job hash is ".spl_object_hash($right_job));
@@ -135,9 +159,11 @@ final class Chain
                 $left_data,
                 $stdout_is_captured);
             } catch (Exception $ex) {
+              omni_trace("encountered exception during left hand side execution");
               omni_trace("killing pipes for left and right jobs");
               $left_job->killTemporaryPipes();
               $right_job->killTemporaryPipes();
+              omni_trace("rethrowing exception");
               throw $ex;
             }
               
@@ -168,8 +194,10 @@ final class Chain
                   $right_data,
                   $stdout_is_captured);
               } catch (Exception $ex) {
+                omni_trace("encountered exception during right hand side execution");
                 omni_trace("killing pipes for right job");
                 $right_job->killTemporaryPipes();
+                omni_trace("rethrowing exception");
                 throw $ex;
               }
                 
@@ -200,6 +228,15 @@ final class Chain
       }
     } else if ($pid > 0) {
       omni_trace("i am the chain parent process, with child pid $pid");
+      
+      foreach ($close_read_on_fork as $endpoint) {
+        $endpoint->closeRead();
+        omni_trace("closed read endpoint ".$endpoint->getName()." due to fork");
+      }
+      foreach ($close_write_on_fork as $endpoint) {
+        $endpoint->closeWrite();
+        omni_trace("closed write endpoint ".$endpoint->getName()." due to fork");
+      }
       
       $child = new ProcessIDWrapper($pid, 'chain', $this->getCommand());
       $job->addProcess($child);

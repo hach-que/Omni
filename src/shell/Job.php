@@ -164,12 +164,14 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       $this->temporaryPipes = array();
     }
     
-    omni_trace("registered temporary pipe on job ".spl_object_hash($this));
+    omni_trace("registered temporary pipe '".spl_object_hash($pipe)."' on job ".spl_object_hash($this));
     $this->temporaryPipes[] = $pipe;
   }
   
   public function getTemporaryPipes() {
     if ($this->temporaryPipes === null) {
+      return array();
+      
       omni_trace("temporary pipes is null (no pipes are registered!) on job ".spl_object_hash($this));
       throw new Exception("temporary pipes is null (no pipes are registered!");
     }
@@ -187,7 +189,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   public function closeTemporaryPipes() {
     if ($this->temporaryPipes !== null) {
       foreach ($this->temporaryPipes as $pipe) {
-        $pipe->close();
+        if (!$pipe->isClosed()) {
+          $pipe->close();
+        }
       }
     }
   }
@@ -206,13 +210,40 @@ final class Job extends Phobject implements HasTerminalModesInterface {
     
     omni_trace("preparing chain root");
     
+    $this->registerTemporaryPipe($stdin);
+    $this->registerTemporaryPipe($stdout);
+    $this->registerTemporaryPipe($stderr);
+    
     $prepare_data = $this->chainRoot->prepare(
       $shell,
       $this,
       $stdin,
       $stdout,
       $stderr,
-      false);
+      $stdout_is_captured);
+      
+    foreach ($this->getTemporaryPipes() as $pipe) {
+      omni_trace("marking ".$pipe->getName()." as finalized");
+      
+      // This pipe won't be modified by us any more, so we should assume
+      // all inbound and outbound endpoints that would have been connected, 
+      // have been connected.  This needs to be done because if we're running
+      // a builtin, it might not add an endpoint to standard input, which would
+      // keep the standard input controller running (even when it should exit).
+      if (!$pipe->isClosed()) {
+        $pipe->markFinalized();
+      }
+      
+      $process = $pipe->getControllerProcess(true);
+      if ($process !== null) {
+        $this->addProcess($process);
+        
+        if ($pipe === $stdout && $stdout_is_captured) {
+          omni_trace("marking standard output process as ignored for completion");
+          $this->ignoreProcessForCompletion($process);
+        }
+      }
+    }
       
     omni_trace("executing chain root");
       

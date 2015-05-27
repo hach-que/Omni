@@ -19,7 +19,7 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testAnd5() {
-    $this->runFunctionalTest('and-5');
+    $this->runFunctionalTest('and-5', array('--trace'));
   }
   
   public function testAnd6() {
@@ -43,9 +43,6 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testAssignment2() {
-    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
-    return;
-    
     $this->runFunctionalTest('assignment-2');
   }
   
@@ -70,9 +67,6 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testExecFuture1() {
-    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
-    return;
-    
     $this->runFunctionalTest('exec-future-1');
   }
   
@@ -85,9 +79,6 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testFileAccess1() {
-    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
-    return;
-    
     $this->runFunctionalTest('file-access-1');
   }
   
@@ -143,9 +134,6 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testNewBuiltin1() {
-    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
-    return;
-    
     $this->runFunctionalTest('new-builtin-1');
   }
   
