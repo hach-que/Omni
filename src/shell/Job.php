@@ -71,7 +71,9 @@ final class Job extends Phobject implements HasTerminalModesInterface {
   }
   
   public function addProcess(ProcessInterface $process) {
-    $this->processes[] = $process;
+    if (!in_array($process, $this->processes)) {
+      $this->processes[] = $process;
+    }
   }
   
   public function getProcesses() {
@@ -164,8 +166,10 @@ final class Job extends Phobject implements HasTerminalModesInterface {
       $this->temporaryPipes = array();
     }
     
-    omni_trace("registered temporary pipe '".spl_object_hash($pipe)."' on job ".spl_object_hash($this));
-    $this->temporaryPipes[] = $pipe;
+    if (!in_array($pipe, $this->temporaryPipes)) {
+      omni_trace("registered temporary pipe '".spl_object_hash($pipe)."' on job ".spl_object_hash($this));
+      $this->temporaryPipes[] = $pipe;
+    }
   }
   
   public function getTemporaryPipes() {

@@ -111,10 +111,10 @@ final class FunctionalTestCase extends PhutilTestCase {
   }
   
   public function testIterDoesNotDeadlock() {
-    $this->assertEqual('', 'This deadlocks due to the new && and || operators.');
+    $this->assertEqual('', 'This sometimes deadlocks due to the new && and || operators.');
     return;
     
-    $this->runFunctionalTest('iter-does-not-deadlock');
+    $this->runFunctionalTest('iter-does-not-deadlock', array('--trace-file'));
   }
   
   public function testLsExitCode0() {
