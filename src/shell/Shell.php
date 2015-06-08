@@ -43,6 +43,8 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
     $this->terminal = self::STDIN_FILENO;
     $this->isInteractive = posix_isatty($this->terminal) && !$force_noninteractive;
     
+    pcntl_signal(SIGUSR1, array($this, "traceFileDescriptorTable"));
+      
     if ($this->isInteractive) {
       omni_trace("ensuring foreground control");
       
@@ -75,6 +77,14 @@ final class Shell extends Phobject implements HasTerminalModesInterface {
       // Save the terminal defaults for the shell.
       $this->setTerminalModes($this->captureCurrentTerminalModes());
     }
+  }
+  
+  
+/* -(  Debugging  )--------------------------------------------------------- */
+  
+  
+  public function traceFileDescriptorTable() {
+    FileDescriptorManager::traceAll();
   }
   
   

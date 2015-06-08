@@ -125,6 +125,10 @@ final class FunctionalTestCase extends PhutilTestCase {
     $this->runFunctionalTest('ls-exit-code-1');
   }
   
+  public function testLsSortMapDoesNotDeadlock() {
+    $this->runFunctionalTest('ls-sort-map-does-not-deadlock');
+  }
+  
   public function testNestedScriptsBackground() {
     $this->runFunctionalTest('nested-scripts-background');
   }

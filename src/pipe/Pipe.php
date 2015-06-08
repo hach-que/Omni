@@ -614,6 +614,20 @@ class Pipe extends Phobject implements PipeInterface {
         $this->controllerDataToControllerPipe->closeWrite();
         $this->controllerDataFromControllerPipe->closeRead();
         
+        omni_trace("closing all file descriptors other than the controller FDs");
+        
+        $fd_table = FileDescriptorManager::getFDTable();
+        foreach ($fd_table as $fd => $data) {
+          if ($fd >= 1000) {
+            if ($fd !== $this->controllerControlPipe['read'] &&
+              $fd !== $this->controllerDataToControllerPipe->getReadFD() &&
+              $fd !== $this->controllerDataFromControllerPipe->getWriteFD()) {
+              omni_trace("pipe controller automatically closing $fd");
+              FileDescriptorManager::close($fd);
+            }
+          }
+        }
+        
         omni_trace("updating pipe controller forever");
         
         // This is the child process.

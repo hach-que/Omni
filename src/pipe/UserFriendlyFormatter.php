@@ -9,8 +9,8 @@
  */
 final class UserFriendlyFormatter extends Phobject {
 
-  private $seenArrays = null;
-  private $seenObjects = null;
+  private $seenArrays = array();
+  private $seenObjects = array();
 
   public function clearSeenCache() {
     $this->seenArrays = array();

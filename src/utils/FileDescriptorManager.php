@@ -50,6 +50,12 @@ final class FileDescriptorManager extends Phobject {
     return self::$fdTable;
   }
   
+  public static function traceAll() {
+    foreach (self::$fdTable as $id => $tbl) {
+      omni_trace("mfd: ".$id." rfd: ".$tbl['fd']." type: ".$tbl['type']." name: ".$tbl['name']);
+    }
+  }
+  
   public static function replaceStandardPipes($stdin, $stdout, $stderr) {
     self::$fdTable[self::STDIN_FILENO]['fd'] = 
       self::$fdTable[$stdin]['fd'];
@@ -146,7 +152,6 @@ final class FileDescriptorManager extends Phobject {
     foreach (self::$fdTable as $fd => $data) {
       if ($fd >= 1000) {
         self::close($fd);
-        unset(self::$fdTable[$fd]);
       }
     }
   }
